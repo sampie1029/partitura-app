@@ -132,38 +132,47 @@ async function setupUpdateNotifier() {
         setInstalledVersion('0.0.0');
     }
 
-    // Comprobar actualizaciones de forma periódica
-    checkForUpdates();
-    setInterval(checkForUpdates, VERSION_CHECK_INTERVAL);
+    // Comprobar actualizaciones: al iniciar con popup, cada 5 min sin popup
+    checkForUpdates(true);
+    setInterval(() => checkForUpdates(false), VERSION_CHECK_INTERVAL);
 }
 
 // Comprueba si hay una versión nueva de la app disponible.
 // Compara la versión local (APP_VERSION) con la más reciente del servidor
-// (version.json). Es la misma lógica que el botón manual de Configuración.
+// (version.json).
+// showModal=true: muestra el popup de alerta (solo al iniciar la app)
+// showModal=false: solo muestra el botón "Actualizar" en settings (sin molestar)
 let checkingUpdates = false;
-async function checkForUpdates() {
-    if (checkingUpdates) return; // evitar comprobaciones simultáneas
+async function checkForUpdates(showModal = false) {
+    if (checkingUpdates) return;
     checkingUpdates = true;
     try {
-        // No comprobar si hay una actualización ya en curso
-        if (!document.getElementById('updateModal').classList.contains('hidden')) return;
-
         const cacheBust = '?t=' + Date.now();
         const res = await fetch('version.json' + cacheBust, { cache: 'no-store' });
         if (!res.ok) throw new Error('Sin conexión');
         const data = await res.json();
         const latest = data.version;
         const current = APP_VERSION;
+        const updateBtn = document.getElementById('updateBtn');
 
         if (compareVersions(latest, current) > 0) {
-            // Hay una versión nueva del servidor
-            const shouldUpdate = await askToUpdate(current, latest);
-            if (shouldUpdate) {
-                await applyUpdate(latest);
+            // Hay una versión nueva: mostrar botón "Actualizar" en settings
+            if (updateBtn) {
+                updateBtn.classList.remove('hidden');
+                updateBtn.title = `v${current} → v${latest}`;
             }
+            setUpdateStatus(`Nueva versión disponible: v${latest}`, '');
+            // Solo mostrar el popup de alerta al iniciar (showModal=true)
+            if (showModal && document.getElementById('updateModal').classList.contains('hidden')) {
+                const shouldUpdate = await askToUpdate(current, latest);
+                if (shouldUpdate) await performUpdate();
+            }
+        } else {
+            // Ya se tiene la última versión
+            if (updateBtn) updateBtn.classList.add('hidden');
+            if (showModal) setUpdateStatus('', '');
         }
     } catch (e) {
-        // Si no hay conexión, simplemente no molestar
         console.warn('No se pudo comprobar actualizaciones:', e);
     } finally {
         checkingUpdates = false;
@@ -215,89 +224,6 @@ function setProgress(percent, stepText) {
     if (progressPercent) progressPercent.textContent = percent + '%';
     if (stepText && progressStepEl) progressStepEl.textContent = stepText;
 }
-
-// Aplica la actualización de forma forzada, mostrando una barra de progreso
-// y al final un botón para que el usuario cierre y reabra la app.
-async function applyUpdate(targetVersion) {
-    // Marcar la versión DESTINO (la nueva) como instalada ANTES de nada,
-    // para que al volver la página no vuelva a pedir actualizar.
-    const newVersion = targetVersion || APP_VERSION;
-    setInstalledVersion(newVersion);
-
-    // Mostrar la pantalla de progreso (ocultamos el modal de confirmación)
-    document.getElementById('updateModal').classList.add('hidden');
-    if (progressDone) progressDone.classList.add('hidden');
-    progressScreen.classList.remove('hidden');
-    setProgress(0, 'Preparando la actualización...');
-    await new Promise(r => setTimeout(r, 300));
-
-    let error = null;
-    try {
-        if ('serviceWorker' in navigator) {
-            setProgress(15, 'Actualizando el servicio de la app...');
-            const reg = await navigator.serviceWorker.ready;
-            setProgress(30, 'Descargando la nueva versión...');
-
-            // Descargar el service worker nuevo (si existe)
-            try { await reg.update(); setProgress(50, 'Descargada. Instalando...'); }
-            catch (e) { console.warn('update SW:', e); }
-
-            // Forzar que el SW nuevo tome control
-            if (reg.waiting) {
-                setProgress(60, 'Activando la nueva versión...');
-                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-
-            // Pedirle al SW que borre TODOS los caches (actualización limpia)
-            const activeSw = reg.active || reg.waiting || reg.installing;
-            if (activeSw) {
-                setProgress(75, 'Limpiando archivos antiguos...');
-                activeSw.postMessage({ type: 'PURGE_ALL' });
-            }
-
-            // Esperar a que el SW nuevo tome control (o timeout de seguridad)
-            setProgress(85, 'Confirmando la instalación...');
-            await new Promise(resolve => {
-                if (!navigator.serviceWorker.controller) { resolve(); return; }
-                const onControl = () => {
-                    navigator.serviceWorker.removeEventListener('controllerchange', onControl);
-                    resolve();
-                };
-                navigator.serviceWorker.addEventListener('controllerchange', onControl);
-                setTimeout(resolve, 6000);
-            });
-
-            // Pequeña pausa para que termine de limpiar el cache
-            await new Promise(r => setTimeout(r, 900));
-        }
-    } catch (e) {
-        console.error('Error al actualizar:', e);
-        error = e;
-    }
-
-    if (error) {
-        setProgress(100, '');
-        progressStepEl.textContent = '⚠️ Hubo un problema. Inténtalo de nuevo en unos minutos.';
-    } else {
-        // Terminado: mostrar el botón para cerrar y reabrir la app
-        setProgress(100, '');
-        progressStepEl.textContent = '';
-        if (progressDone) progressDone.classList.remove('hidden');
-    }
-}
-
-// Asignar la acción del botón "Hecho" (cierra la pestaña si es posible;
-// normalmente simplemente guía al usuario a cerrar y reabrir la app)
-document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('progressCloseBtn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            // Intentar cerrar, si el navegador lo permite (en PWA instalado no se puede).
-            try { window.close(); } catch (e) {}
-            showToast('Cierra la app por completo y vuelve a abrirla');
-        });
-    }
-});
 
 // Pequeña notificación tipo "toast"
 function showToast(message) {
@@ -480,9 +406,16 @@ function setupEventListeners() {
     // Configuración
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
     document.getElementById('backFromSettings').addEventListener('click', closeSettings);
-    document.getElementById('checkUpdateBtn').addEventListener('click', manualCheckForUpdates);
-    const resetBtn = document.getElementById('resetAppBtn');
-    if (resetBtn) resetBtn.addEventListener('click', hardResetApp);
+    document.getElementById('updateBtn').addEventListener('click', () => {
+        if (confirm('Tu app se actualizará sin perder tus partituras.\n\n¿Continuar?')) {
+            performUpdate();
+        }
+    });
+    document.getElementById('resetAppBtn').addEventListener('click', () => {
+        if (confirm('Esto limpiará los archivos temporales de la app.\n\nTus partituras NO se borran.\n\n¿Continuar?')) {
+            performUpdate();
+        }
+    });
     setupSettingsNav();
 
     // Cerrar modal al hacer clic fuera
@@ -573,75 +506,29 @@ function setUpdateStatus(msg, type) {
     status.className = 'settings-status' + (type ? ' ' + type : '');
 }
 
-async function manualCheckForUpdates() {
-    const btn = document.getElementById('checkUpdateBtn');
-    btn.disabled = true;
-    setUpdateStatus('🔍 Buscando actualizaciones...', '');
-
+// Proceso de actualización unificado: limpia caches, desregistra el SW
+// y recarga la app desde el servidor. Tus partituras (IndexedDB) NO se borran.
+async function performUpdate() {
+    const updateBtn = document.getElementById('updateBtn');
+    if (updateBtn) updateBtn.disabled = true;
+    setUpdateStatus('🔄 Actualizando la app...', '');
     try {
-        // Obtener la versión más reciente desde el servidor (GitHub Pages)
-        const cacheBust = '?t=' + Date.now(); // evita cache
-        // Timeout para que no se quede colgado pidiendo "revisa tu conexión"
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        let res;
-        try {
-            res = await fetch('version.json' + cacheBust, { cache: 'no-store', signal: controller.signal });
-        } finally {
-            clearTimeout(timeout);
-        }
-        if (!res.ok) throw new Error('No se pudo conectar');
-        const data = await res.json();
-        const latest = data.version;
-
-        const current = APP_VERSION;
-
-        if (compareVersions(latest, current) > 0) {
-            // Hay una versión nueva disponible
-            setUpdateStatus(`✅ Hay una versión nueva: v${latest} (tienes v${current})`, 'success');
-            // Ofrecer actualizar
-            const shouldUpdate = await askToUpdate(current, latest);
-            if (shouldUpdate) {
-                await applyUpdate(latest);
-            }
-        } else {
-            setUpdateStatus(`✅ Ya tienes la última versión (v${current})`, 'success');
-        }
-    } catch (e) {
-        console.error('Error al buscar actualizaciones:', e);
-        setUpdateStatus('⚠️ No se pudo comprobar. Si tienes internet, usa el botón "Reinstalar la app" de abajo.', 'error');
-    } finally {
-        btn.disabled = false;
-    }
-}
-
-// Limpia por completo el service worker y los caches viejos (sin tocar las
-// partituras, que viven en IndexedDB y se conservan). Esto resuelve cuando
-// un service worker viejo se queda "atascado" y bloquea las actualizaciones.
-async function hardResetApp() {
-    const ok = confirm('Esto limpiará los archivos temporales de la app para arreglar las actualizaciones.\n\nTus partituras NO se borran.\n\n¿Continuar?');
-    if (!ok) return;
-
-    setUpdateStatus('🔄 Limpiando archivos de la app...', '');
-    try {
-        // 1. Borrar todos los caches del navegador (archivos temporales)
         if ('caches' in window) {
             const keys = await caches.keys();
             await Promise.all(keys.map(k => caches.delete(k)));
         }
-        // 2. Desregistrar el service worker (para liberar el control viejo)
         if ('serviceWorker' in navigator) {
             const regs = await navigator.serviceWorker.getRegistrations();
             await Promise.all(regs.map(r => r.unregister()));
         }
-        setUpdateStatus('✅ Archivos limpiados. Recargando la app...', 'success');
-        // 3. Recargar para cargar todo desde cero (sin service worker viejo)
+        setUpdateStatus('✅ Listo. Recargando la app...', 'success');
         setTimeout(() => {
             window.location.reload();
         }, 1200);
     } catch (e) {
-        console.error('Error al limpiar:', e);
-        setUpdateStatus('⚠️ No se pudo limpiar. Cierra la app y ábrela de nuevo.', 'error');
+        console.error('Error al actualizar:', e);
+        setUpdateStatus('⚠️ No se pudo actualizar. Cierra y vuelve a abrir la app.', 'error');
+        if (updateBtn) updateBtn.disabled = false;
     }
 }
 

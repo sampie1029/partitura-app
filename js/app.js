@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -366,9 +366,8 @@ function setupEventListeners() {
 
     // Visor
     document.getElementById('backBtn').addEventListener('click', closeViewer);
-    document.getElementById('prevPage').addEventListener('click', () => changePage(-1));
-    document.getElementById('nextPage').addEventListener('click', () => changePage(1));
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    setupSwipeNavigation();
 
     // Modal
     document.getElementById('addBtn').addEventListener('click', openModal);
@@ -550,6 +549,61 @@ async function renderPage(num) {
 
     await page.render({ canvasContext: ctx, viewport }).promise;
     pageInfo.textContent = `Página ${num} de ${pdfDoc.numPages}`;
+}
+
+// Navegación por gestos: deslizar hacia la izquierda/derecha
+// cambia de página. También se puede tocar en los lados de la pantalla.
+function setupSwipeNavigation() {
+    let startX = null;
+    let startY = null;
+    const SWIPE_THRESHOLD = 60; // píxeles mínimos para activar el gesto
+
+    pdfContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }
+    }, { passive: true });
+
+    pdfContainer.addEventListener('touchend', (e) => {
+        if (startX === null) return;
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = startX - endX;
+        const diffY = startY - endY;
+
+        // Solo considerar deslizamiento horizontal claro
+        if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+            if (diffX > 0) {
+                changePage(1);  // deslizar a la izquierda = siguiente página
+            } else {
+                changePage(-1); // deslizar a la derecha = página anterior
+            }
+            startX = null;
+        }
+    }, { passive: true });
+
+    pdfContainer.addEventListener('touchcancel', () => {
+        startX = null;
+    }, { passive: true });
+
+    // También soporte para ratón (pruebas en Mac)
+    let mouseDownX = null;
+    pdfContainer.addEventListener('mousedown', (e) => {
+        mouseDownX = e.clientX;
+    });
+    pdfContainer.addEventListener('mouseup', (e) => {
+        if (mouseDownX === null) return;
+        const diffX = mouseDownX - e.clientX;
+        if (Math.abs(diffX) > SWIPE_THRESHOLD) {
+            if (diffX > 0) {
+                changePage(1);
+            } else {
+                changePage(-1);
+            }
+        }
+        mouseDownX = null;
+    });
 }
 
 function changePage(delta) {

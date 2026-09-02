@@ -7,7 +7,7 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v4';
+const CACHE_NAME = 'partituras-v5';
 
 // Los archivos core se precachean al instalar.
 const CORE_ASSETS = [

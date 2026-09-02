@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.8.1';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -134,29 +134,37 @@ async function setupUpdateNotifier() {
     setInterval(checkForUpdates, VERSION_CHECK_INTERVAL);
 }
 
-// Comprueba si hay una versión nueva de la app disponible
+// Comprueba si hay una versión nueva de la app disponible.
+// Compara la versión local (APP_VERSION) con la más reciente del servidor
+// (version.json). Es la misma lógica que el botón manual de Configuración.
+let checkingUpdates = false;
 async function checkForUpdates() {
-    const installed = getInstalledVersion();
+    if (checkingUpdates) return; // evitar comprobaciones simultáneas
+    checkingUpdates = true;
+    try {
+        // No comprobar si hay una actualización ya en curso
+        if (!document.getElementById('updateModal').classList.contains('hidden')) return;
 
-    if (installed !== APP_VERSION) {
-        // Hay una versión distinta a la que el usuario tiene
-        if (installed === null) {
-            // Primera vez: registrar la versión y no molestar
-            setInstalledVersion(APP_VERSION);
-            return;
-        }
+        const cacheBust = '?t=' + Date.now();
+        const res = await fetch('version.json' + cacheBust, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Sin conexión');
+        const data = await res.json();
+        const latest = data.version;
+        const current = APP_VERSION;
 
-        // El usuario ya tenía esta app antes y hay una versión nueva.
-        // Preguntarle si quiere actualizar ahora.
-        const shouldUpdate = await askToUpdate(installed, APP_VERSION);
-        if (shouldUpdate) {
-            await applyUpdate();
-        } else {
-            showToast('Podrás actualizar más tarde desde ⚙️');
+        if (compareVersions(latest, current) > 0) {
+            // Hay una versión nueva del servidor
+            const shouldUpdate = await askToUpdate(current, latest);
+            if (shouldUpdate) {
+                await applyUpdate(latest);
+            }
         }
+    } catch (e) {
+        // Si no hay conexión, simplemente no molestar
+        console.warn('No se pudo comprobar actualizaciones:', e);
+    } finally {
+        checkingUpdates = false;
     }
-
-    // Si ya tenemos la versión correcta, no hacer nada (la app está al día)
 }
 
 function askToUpdate(oldVersion, newVersion) {
@@ -191,12 +199,16 @@ function askToUpdate(oldVersion, newVersion) {
     });
 }
 
-// Aplica la actualización: descarga los archivos nuevos para que al
-// reiniciar la app se cargue la versión nueva.
-async function applyUpdate() {
-    // Marcar la versión nueva como instalada ANTES de nada,
+// Aplica la actualización de forma forzada y definitiva:
+// 1. Descarga el service worker nuevo.
+// 2. Le pide borrar TODOS los caches.
+// 3. Espera a que lo haya hecho y tome control.
+// 4. Recarga la página para cargar la versión nueva.
+async function applyUpdate(targetVersion) {
+    // Marcar la versión DESTINO (la nueva) como instalada ANTES de nada,
     // para que al volver la página no vuelva a pedir actualizar.
-    setInstalledVersion(APP_VERSION);
+    const newVersion = targetVersion || APP_VERSION;
+    setInstalledVersion(newVersion);
     showToast('🔄 Descargando actualización...');
 
     try {
@@ -210,15 +222,35 @@ async function applyUpdate() {
             if (reg.waiting) {
                 reg.waiting.postMessage({ type: 'SKIP_WAITING' });
             }
+
+            // Pedirle al SW que borre TODOS los caches (actualización limpia)
+            const activeSw = reg.active || reg.waiting || reg.installing;
+            if (activeSw) {
+                activeSw.postMessage({ type: 'PURGE_ALL' });
+            }
+
+            // Esperar a que el SW nuevo tome control (o timeout de seguridad)
+            await new Promise(resolve => {
+                if (!navigator.serviceWorker.controller) { resolve(); return; }
+                const onControl = () => {
+                    navigator.serviceWorker.removeEventListener('controllerchange', onControl);
+                    resolve();
+                };
+                navigator.serviceWorker.addEventListener('controllerchange', onControl);
+                setTimeout(resolve, 6000);
+            });
+
+            // Pequeña pausa para que termine de limpiar el cache
+            await new Promise(r => setTimeout(r, 800));
         }
     } catch (e) {
         console.error('Error al actualizar:', e);
     }
 
-    // Mostrar aviso de que se debe reiniciar la app para completar la
-    // actualización. NO recargamos automáticamente para evitar el bucle
-    // que impedía aplicar los cambios.
-    alert('✅ Actualización descargada.\n\nPara que se aplique, cierra la app por completo y vuélvela a abrir.');
+    // Recarga forzada: como ya se limpió el cache, se carga la versión nueva.
+    // Usamos cache-buster (?v=...) por si algún navegador tiene contenido en memoria.
+    const url = window.location.pathname + '?v=' + newVersion + '&t=' + Date.now();
+    window.location.href = url;
 }
 
 // Pequeña notificación tipo "toast"
@@ -510,7 +542,7 @@ async function manualCheckForUpdates() {
             // Ofrecer actualizar
             const shouldUpdate = await askToUpdate(current, latest);
             if (shouldUpdate) {
-                await applyUpdate();
+                await applyUpdate(latest);
             }
         } else {
             setUpdateStatus(`✅ Ya tienes la última versión (v${current})`, 'success');

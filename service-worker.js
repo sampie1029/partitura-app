@@ -7,7 +7,7 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v10';
+const CACHE_NAME = 'partituras-v11';
 
 // Los archivos core se precachean al instalar.
 const CORE_ASSETS = [
@@ -22,6 +22,13 @@ const CORE_ASSETS = [
 ];
 
 // Evento: instalación inicial
+// Forzar a que el nuevo service worker tome control
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
@@ -56,40 +63,35 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Evento: fetch. Estrategia: cache con revalidación en segundo plano.
-// - Primero responde desde cache (rápido y offline).
-// - En paralelo, comprueba si hay versión nueva en red.
-// - Si hay versión nueva, la usa la próxima vez.
-// - Así las actualizaciones llegan solas sin romper nada.
+// Evento: fetch.
+// Estrategia principal: NETWORK-FIRST con fallback a cache.
+// - Siempre intenta la red primero (así llegan las actualizaciones).
+// - Si no hay conexión, usa el cache (funciona offline).
+// - Cuando responde de red, actualiza el cache para uso offline posterior.
+// Esto garantiza que al abrir la app siempre se obtenga la versión más nueva.
 self.addEventListener('fetch', event => {
-    // No interceptar nada que no sea de la propia app
+    // Solo interceptar peticiones de la propia app (mismo origen)
     if (!event.request.url.startsWith(self.location.origin)) return;
-    // No interceptar peticiones de datos (evitar cachear blobs grandes)
-    if (event.request.url.includes('/lib/') === false &&
-        !isCoreAsset(event.request.url)) {
-        // No cachear: dejar pasar a red (o fallback al cache si offline)
-    }
 
+    // Las peticiones a /lib/ (pdf.js) y archivos estáticos también se cachean.
     event.respondWith(
         (async () => {
-            const cachedResponse = await caches.match(event.request);
-            const networkResponsePromise = fetch(event.request).then(response => {
-                if (response && response.status === 200 && response.type === 'basic') {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            try {
+                // Intentar red primero
+                const networkResponse = await fetch(event.request);
+                // Si es válida y del mismo origen, guardarla en cache
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const clone = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(() => {});
                 }
-                return response;
-            }).catch(() => cachedResponse);
-
-            // Si tenemos cache, responder al instante y actualizar en segundo plano
-            return cachedResponse || networkResponsePromise;
+                return networkResponse;
+            } catch (err) {
+                // Fallo de red: usar cache (funciona offline)
+                const cachedResponse = await caches.match(event.request);
+                if (cachedResponse) return cachedResponse;
+                // Si no hay cache, dejar pasar el error
+                throw err;
+            }
         })()
     );
 });
-
-function isCoreAsset(url) {
-    return CORE_ASSETS.some(asset => {
-        const urlPath = new URL(url).pathname;
-        return urlPath === asset || (asset !== '/' && urlPath.startsWith(asset));
-    });
-}

@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.7.2';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -188,12 +188,13 @@ function askToUpdate(oldVersion, newVersion) {
     });
 }
 
-// Aplica la actualización: descarga los archivos nuevos y recarga.
+// Aplica la actualización: descarga los archivos nuevos para que al
+// reiniciar la app se cargue la versión nueva.
 async function applyUpdate() {
-    // Marcar la versión nueva como instalada ANTES de recargar,
+    // Marcar la versión nueva como instalada ANTES de nada,
     // para que al volver la página no vuelva a pedir actualizar.
     setInstalledVersion(APP_VERSION);
-    showToast('🔄 Actualizando...');
+    showToast('🔄 Descargando actualización...');
 
     try {
         if ('serviceWorker' in navigator) {
@@ -202,33 +203,19 @@ async function applyUpdate() {
             // Descargar el service worker nuevo (si existe)
             try { await reg.update(); } catch (e) { console.warn('update SW:', e); }
 
-            // Forzar que el SW nuevo tome control de esta página
-            // (si hay uno nuevo pendiente)
+            // Forzar que el SW nuevo tome control
             if (reg.waiting) {
                 reg.waiting.postMessage({ type: 'SKIP_WAITING' });
             }
-
-            // Esperar a que tome control
-            await new Promise(resolve => {
-                if (!navigator.serviceWorker.controller) {
-                    resolve();
-                    return;
-                }
-                const onControl = () => {
-                    navigator.serviceWorker.removeEventListener('controllerchange', onControl);
-                    resolve();
-                };
-                navigator.serviceWorker.addEventListener('controllerchange', onControl);
-                setTimeout(resolve, 4000);
-            });
         }
     } catch (e) {
-        console.error('Error al actualizar (se recarga igualmente):', e);
+        console.error('Error al actualizar:', e);
     }
 
-    // Recarga con cache-buster para evitar obtener archivos del cache,
-    // asegurando que se cargue la versión nueva de GitHub.
-    window.location.href = window.location.pathname + '?v=' + APP_VERSION;
+    // Mostrar aviso de que se debe reiniciar la app para completar la
+    // actualización. NO recargamos automáticamente para evitar el bucle
+    // que impedía aplicar los cambios.
+    alert('✅ Actualización descargada.\n\nPara que se aplique, cierra la app por completo y vuélvela a abrir.');
 }
 
 // Pequeña notificación tipo "toast"

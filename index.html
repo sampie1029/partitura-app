@@ -92,30 +92,83 @@
         </div>
     </div>
 
-    <!-- Modal de Configuración -->
-    <div id="settingsModal" class="modal hidden">
-        <div class="modal-content settings-modal">
-            <div class="settings-header">
-                <h3>Configuración</h3>
-                <button id="closeSettings" class="icon-btn close-x">×</button>
-            </div>
+    <!-- Pantalla de Configuración completa -->
+    <div id="settingsScreen" class="settings-screen hidden">
+        <header class="settings-screen-header">
+            <button id="backFromSettings" class="icon-btn">←</button>
+            <h2>Configuración</h2>
+            <span class="header-spacer"></span>
+        </header>
 
-            <div class="settings-section">
-                <div class="settings-row">
-                    <span class="settings-label">Versión de la app</span>
-                    <span id="settingsVersion" class="settings-value">-</span>
+        <div class="settings-body">
+            <!-- Lista de secciones (izquierda) -->
+            <nav class="settings-nav">
+                <button class="settings-nav-item active" data-settings="">🏠 Resumen</button>
+                <button class="settings-nav-item" data-settings="update">🔄 Actualizaciones</button>
+                <button class="settings-nav-item" data-settings="storage">💾 Almacenamiento</button>
+                <button class="settings-nav-item" data-settings="about">ℹ️ Acerca de</button>
+                <button class="settings-nav-item" data-settings="feedback">💬 Ayuda</button>
+            </nav>
+
+            <!-- Vista de la sección seleccionada (derecha) -->
+            <div class="settings-content">
+                <!-- Resumen -->
+                <div class="settings-panel" data-panel="resumen">
+                    <h3>Resumen</h3>
+                    <div class="settings-row">
+                        <span class="settings-label">Versión de la app</span>
+                        <span id="settingsVersion" class="settings-value">-</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-label">Partituras guardadas</span>
+                        <span class="settings-value" id="settingsSheetCount">-</span>
+                    </div>
+                    <div class="settings-row">
+                        <span class="settings-label">Espacio utilizado</span>
+                        <span class="settings-value" id="settingsStorage">-</span>
+                    </div>
                 </div>
-            </div>
 
-            <div class="settings-section">
-                <h4>Actualizaciones</h4>
-                <button id="checkUpdateBtn" class="settings-action">🔍 Buscar actualizaciones</button>
-                <div id="updateStatus" class="settings-status"></div>
-            </div>
+                <!-- Actualizaciones -->
+                <div class="settings-panel hidden" data-panel="update">
+                    <h3>Actualizaciones</h3>
+                    <button id="checkUpdateBtn" class="settings-action">🔍 Buscar actualizaciones</button>
+                    <div id="updateStatus" class="settings-status"></div>
+                </div>
 
-            <div class="settings-section">
-                <h4>Acerca de</h4>
-                <p class="settings-about">App de partituras offline. Tus partituras se guardan en este dispositivo y nunca se pierden.</p>
+                <!-- Almacenamiento -->
+                <div class="settings-panel hidden" data-panel="storage">
+                    <h3>Almacenamiento</h3>
+                    <p class="settings-about">Tus partituras se guardan en este dispositivo y funcionan sin internet.</p>
+                    <div class="settings-row">
+                        <span class="settings-label">Uso de espacio</span>
+                        <span class="settings-value" id="storageUsage">-</span>
+                    </div>
+                    <button id="clearStorageBtn" class="settings-action danger">🗑️ Vaciar caché de la app</button>
+                    <div id="storageStatus" class="settings-status"></div>
+                </div>
+
+                <!-- Acerca de -->
+                <div class="settings-panel hidden" data-panel="about">
+                    <h3>Acerca de</h3>
+                    <p class="settings-about">App de partituras offline creada para músicos. Tus partituras se guardan en este dispositivo y nunca se pierden.</p>
+                    <div class="settings-row">
+                        <span class="settings-label">Versión</span>
+                        <span class="settings-value" id="aboutVersion">-</span>
+                    </div>
+                </div>
+
+                <!-- Ayuda -->
+                <div class="settings-panel hidden" data-panel="feedback">
+                    <h3>Ayuda</h3>
+                    <p class="settings-about">📖 Cómo usar la app:</p>
+                    <ul class="settings-help">
+                        <li>Toca <b>+</b> para agregar una partitura (PDF)</li>
+                        <li>Desliza la pantalla para cambiar de página</li>
+                        <li>Usa la lupa para buscar por nombre</li>
+                        <li>Filtrar por categorías: Guitarra, Piano, Otros</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>

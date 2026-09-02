@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -376,17 +376,13 @@ function setupEventListeners() {
 
     // Configuración
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
-    document.getElementById('closeSettings').addEventListener('click', closeSettings);
+    document.getElementById('backFromSettings').addEventListener('click', closeSettings);
     document.getElementById('checkUpdateBtn').addEventListener('click', manualCheckForUpdates);
+    setupSettingsNav();
 
     // Cerrar modal al hacer clic fuera
     addModal.addEventListener('click', (e) => {
         if (e.target === addModal) closeModal();
-    });
-
-    const settingsModal = document.getElementById('settingsModal');
-    settingsModal.addEventListener('click', (e) => {
-        if (e.target === settingsModal) closeSettings();
     });
 
     // Mostrar nombre de archivo seleccionado
@@ -397,13 +393,91 @@ function setupEventListeners() {
 }
 
 function openSettings() {
+    // Llenar resumen
     document.getElementById('settingsVersion').textContent = `v${APP_VERSION}`;
-    setUpdateStatus('', '');
-    document.getElementById('settingsModal').classList.remove('hidden');
+    document.getElementById('aboutVersion').textContent = `v${APP_VERSION}`;
+    updateSettingsSheetCount();
+    updateSettingsStorage();
+
+    // Mostrar panel de resumen por defecto
+    activateSettingsPanel('resumen');
+    document.getElementById('settingsScreen').classList.remove('hidden');
 }
 
 function closeSettings() {
-    document.getElementById('settingsModal').classList.add('hidden');
+    document.getElementById('settingsScreen').classList.add('hidden');
+}
+
+function setupSettingsNav() {
+    document.querySelectorAll('.settings-nav-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const panel = btn.dataset.settings || 'resumen';
+            activateSettingsPanel(panel);
+        });
+    });
+
+    // Botón de vaciar caché
+    document.getElementById('clearStorageBtn').addEventListener('click', async () => {
+        const status = document.getElementById('storageStatus');
+        if (!confirm('Esto borrará las partituras guardadas en esta app. ¿Estás seguro?')) return;
+        try {
+            indexedDB.deleteDatabase('partituraDB');
+            // También limpiar caches del service worker
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                for (const name of keys) await caches.delete(name);
+            }
+            status.textContent = '✅ Caché borrada. Recargando...';
+            status.className = 'settings-status success';
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (e) {
+            status.textContent = '⚠️ Error al borrar';
+            status.className = 'settings-status error';
+        }
+    });
+}
+
+function activateSettingsPanel(panelName) {
+    // Actualizar botones del nav
+    document.querySelectorAll('.settings-nav-item').forEach(b => b.classList.remove('active'));
+    const activeBtn = document.querySelector(`.settings-nav-item[data-settings="${panelName === 'resumen' ? '' : panelName}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Mostrar el panel correspondiente
+    document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
+    let panelEl;
+    if (panelName === 'resumen') {
+        panelEl = document.querySelector('.settings-panel[data-panel="resumen"]');
+    } else {
+        panelEl = document.querySelector(`.settings-panel[data-panel="${panelName}"]`);
+    }
+    if (panelEl) panelEl.classList.remove('hidden');
+}
+
+async function updateSettingsSheetCount() {
+    try {
+        await openDB();
+        const list = await dbGetAllSheets();
+        document.getElementById('settingsSheetCount').textContent = list.length;
+    } catch {
+        document.getElementById('settingsSheetCount').textContent = '-';
+    }
+}
+
+async function updateSettingsStorage() {
+    try {
+        let total = 0;
+        if (navigator.storage && navigator.storage.estimate) {
+            const est = await navigator.storage.estimate();
+            total = est.usage || 0;
+        }
+        const sizeStr = total > 1048576 ? (total / 1048576).toFixed(1) + ' MB' : (total / 1024).toFixed(0) + ' KB';
+        document.getElementById('settingsStorage').textContent = sizeStr;
+        document.getElementById('storageUsage').textContent = sizeStr;
+    } catch {
+        document.getElementById('settingsStorage').textContent = '-';
+        document.getElementById('storageUsage').textContent = '-';
+    }
 }
 
 function setUpdateStatus(msg, type) {

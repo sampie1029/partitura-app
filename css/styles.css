@@ -317,26 +317,34 @@ header h1 {
 
 #pdfContainer {
     flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     overflow: auto;
     padding: 0;
     touch-action: pan-x pan-y;
+    position: relative;
+}
+
+/* Marco que siempre ocupa al menos el área visible. Centra la página con
+   flex cuando está en escala ajustada y pasa a bloque (esquina arriba-izq)
+   cuando hay zoom, para que el desplazamiento sea natural y preciso. */
+#pdfStage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100%;
+    min-height: 100%;
+    width: max-content;
+    height: max-content;
+}
+
+/* Con zoom activo: quitar el centrado para que el scroll y el pan sean exactos */
+#pdfContainer.zoomed #pdfStage {
+    display: block;
 }
 
 #pdfCanvas {
-    max-width: 100%;
-    max-height: 100%;
     will-change: transform;
     display: block;
-    margin: auto;
-}
-
-/* Cuando el usuario hace zoom, permitir que escale y desplace */
-#pdfContainer.zoomed #pdfCanvas {
-    max-width: none;
-    max-height: none;
+    margin: 0;
 }
 
 /* Modal */

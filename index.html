@@ -100,6 +100,23 @@
         </div>
     </div>
 
+    <!-- Pantalla de progreso de la actualización -->
+    <div id="progressScreen" class="progress-screen hidden">
+        <div class="progress-content">
+            <div class="update-icon">🚀</div>
+            <h3 id="progressTitle">Actualizando...</h3>
+            <p id="progressStep">Preparando...</p>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar" style="width:0%"></div>
+            </div>
+            <p id="progressPercent" class="progress-percent">0%</p>
+            <div id="progressDone" class="progress-done hidden">
+                <p>La actualización está lista. Para terminar, cierra la app por completo y vuélvela a abrir.</p>
+                <button id="progressCloseBtn" class="btn-primary">✓ Hecho</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Pantalla de Configuración completa -->
     <div id="settingsScreen" class="settings-screen hidden">
         <header class="settings-screen-header">

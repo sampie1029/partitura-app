@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.3';
+const APP_VERSION = '1.8.4';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -199,37 +199,61 @@ function askToUpdate(oldVersion, newVersion) {
     });
 }
 
-// Aplica la actualización de forma forzada y definitiva:
-// 1. Descarga el service worker nuevo.
-// 2. Le pide borrar TODOS los caches.
-// 3. Espera a que lo haya hecho y tome control.
-// 4. Recarga la página para cargar la versión nueva.
+// Elementos de la pantalla de progreso de actualización
+const progressScreen = document.getElementById('progressScreen');
+const progressBar = document.getElementById('progressBar');
+const progressStepEl = document.getElementById('progressStep');
+const progressPercent = document.getElementById('progressPercent');
+const progressDone = document.getElementById('progressDone');
+
+// Actualiza la barra de progreso de la actualización
+function setProgress(percent, stepText) {
+    if (progressBar) progressBar.style.width = percent + '%';
+    if (progressPercent) progressPercent.textContent = percent + '%';
+    if (stepText && progressStepEl) progressStepEl.textContent = stepText;
+}
+
+// Aplica la actualización de forma forzada, mostrando una barra de progreso
+// y al final un botón para que el usuario cierre y reabra la app.
 async function applyUpdate(targetVersion) {
     // Marcar la versión DESTINO (la nueva) como instalada ANTES de nada,
     // para que al volver la página no vuelva a pedir actualizar.
     const newVersion = targetVersion || APP_VERSION;
     setInstalledVersion(newVersion);
-    showToast('🔄 Descargando actualización...');
 
+    // Mostrar la pantalla de progreso (ocultamos el modal de confirmación)
+    document.getElementById('updateModal').classList.add('hidden');
+    if (progressDone) progressDone.classList.add('hidden');
+    progressScreen.classList.remove('hidden');
+    setProgress(0, 'Preparando la actualización...');
+    await new Promise(r => setTimeout(r, 300));
+
+    let error = null;
     try {
         if ('serviceWorker' in navigator) {
+            setProgress(15, 'Actualizando el servicio de la app...');
             const reg = await navigator.serviceWorker.ready;
+            setProgress(30, 'Descargando la nueva versión...');
 
             // Descargar el service worker nuevo (si existe)
-            try { await reg.update(); } catch (e) { console.warn('update SW:', e); }
+            try { await reg.update(); setProgress(50, 'Descargada. Instalando...'); }
+            catch (e) { console.warn('update SW:', e); }
 
             // Forzar que el SW nuevo tome control
             if (reg.waiting) {
+                setProgress(60, 'Activando la nueva versión...');
                 reg.waiting.postMessage({ type: 'SKIP_WAITING' });
             }
 
             // Pedirle al SW que borre TODOS los caches (actualización limpia)
             const activeSw = reg.active || reg.waiting || reg.installing;
             if (activeSw) {
+                setProgress(75, 'Limpiando archivos antiguos...');
                 activeSw.postMessage({ type: 'PURGE_ALL' });
             }
 
             // Esperar a que el SW nuevo tome control (o timeout de seguridad)
+            setProgress(85, 'Confirmando la instalación...');
             await new Promise(resolve => {
                 if (!navigator.serviceWorker.controller) { resolve(); return; }
                 const onControl = () => {
@@ -241,17 +265,36 @@ async function applyUpdate(targetVersion) {
             });
 
             // Pequeña pausa para que termine de limpiar el cache
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, 900));
         }
     } catch (e) {
         console.error('Error al actualizar:', e);
+        error = e;
     }
 
-    // Recarga forzada: como ya se limpió el cache, se carga la versión nueva.
-    // Usamos cache-buster (?v=...) por si algún navegador tiene contenido en memoria.
-    const url = window.location.pathname + '?v=' + newVersion + '&t=' + Date.now();
-    window.location.href = url;
+    if (error) {
+        setProgress(100, '');
+        progressStepEl.textContent = '⚠️ Hubo un problema. Inténtalo de nuevo en unos minutos.';
+    } else {
+        // Terminado: mostrar el botón para cerrar y reabrir la app
+        setProgress(100, '');
+        progressStepEl.textContent = '';
+        if (progressDone) progressDone.classList.remove('hidden');
+    }
 }
+
+// Asignar la acción del botón "Hecho" (cierra la pestaña si es posible;
+// normalmente simplemente guía al usuario a cerrar y reabrir la app)
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('progressCloseBtn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            // Intentar cerrar, si el navegador lo permite (en PWA instalado no se puede).
+            try { window.close(); } catch (e) {}
+            showToast('Cierra la app por completo y vuelve a abrirla');
+        });
+    }
+});
 
 // Pequeña notificación tipo "toast"
 function showToast(message) {

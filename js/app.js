@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdfjs/pdf.worker.min.js';
 
     setupEventListeners();
+    setupProgressScreen();
     // Mostrar la versión de la app en el encabezado (para diagnosticar la tablet)
     const headerVersionEl = document.getElementById('headerVersion');
     if (headerVersionEl) headerVersionEl.textContent = 'v' + APP_VERSION;
@@ -98,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.10.3';
+const APP_VERSION = '1.10.4';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -212,12 +213,27 @@ function askToUpdate(oldVersion, newVersion) {
     });
 }
 
-// Elementos de la pantalla de progreso de actualización
-const progressScreen = document.getElementById('progressScreen');
-const progressBar = document.getElementById('progressBar');
-const progressStepEl = document.getElementById('progressStep');
-const progressPercent = document.getElementById('progressPercent');
-const progressDone = document.getElementById('progressDone');
+// Elementos de la pantalla de progreso de actualización.
+// Se capturan dentro de DOMContentLoaded (setupProgressScreen) para asegurar
+// que existen cuando se usa el script.
+let progressScreen = null;
+let progressBar = null;
+let progressStepEl = null;
+let progressPercent = null;
+let progressDone = null;
+
+// Configura la pantalla de progreso (elementos + botón "hecho")
+function setupProgressScreen() {
+    progressScreen = document.getElementById('progressScreen');
+    progressBar = document.getElementById('progressBar');
+    progressStepEl = document.getElementById('progressStep');
+    progressPercent = document.getElementById('progressPercent');
+    progressDone = document.getElementById('progressDone');
+    const closeBtn = document.getElementById('progressCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+        if (progressScreen) progressScreen.classList.add('hidden');
+    });
+}
 
 // Actualiza la barra de progreso de la actualización
 function setProgress(percent, stepText) {
@@ -426,8 +442,16 @@ function setupEventListeners() {
 
     // Mostrar nombre de archivo seleccionado
     document.getElementById('sheetFile').addEventListener('change', (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files && e.target.files[0];
         showAddError('');
+        // Si el usuario aún no escribió un nombre, autocompletamos con el
+        // nombre del archivo (sin su extensión). Es más cómodo.
+        if (file) {
+            const nameInput = document.getElementById('sheetName');
+            if (nameInput && !nameInput.value.trim()) {
+                nameInput.value = file.name.replace(/\.[^.]+$/, '');
+            }
+        }
     });
 }
 
@@ -723,7 +747,6 @@ window.addEventListener('popstate', (e) => {
     if (!viewer.classList.contains('hidden')) {
         // Hay una partitura abierta: al pulsar atrás, cerramos el visor
         // y volvemos a la lista. No salimos de la app.
-        e.preventDefault();
         closeViewer();
     } else if (!document.getElementById('settingsScreen').classList.contains('hidden')) {
         // Si hay configuraciones abiertas, cerrarlas también

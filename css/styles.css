@@ -111,6 +111,7 @@ header h1 {
     overflow-x: auto;
     flex-shrink: 0;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .cat-btn {
@@ -139,6 +140,7 @@ header h1 {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     align-content: start;
+    overscroll-behavior: contain;
 }
 
 .sheet-card {
@@ -153,6 +155,7 @@ header h1 {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    position: relative; /* para posicionar el botón de eliminar */
 }
 
 .sheet-card:hover {
@@ -209,6 +212,9 @@ header h1 {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    overscroll-behavior: none;
 }
 
 /* ------------- Dock del visor (superior, desplegable) ------------- */
@@ -279,10 +285,6 @@ header h1 {
     flex-direction: column;
     gap: 4px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-}
-
-.dock-menu.hidden {
-    display: none;
 }
 
 .dock-menu-item {
@@ -410,6 +412,20 @@ header h1 {
     opacity: 0.5;
 }
 
+.btn-primary:not(:disabled):hover {
+    filter: brightness(1.1);
+}
+
+/* Feedback visual al enfocar y hacer hover (también vale para trackpad) */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.cat-btn:focus-visible,
+.icon-btn:focus-visible,
+.fab:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
 /* ---------- Pantalla de progreso de actualización ---------- */
 .progress-screen {
     position: fixed;
@@ -501,13 +517,17 @@ header h1 {
     line-height: 1;
 }
 
-.sheet-card {
-    position: relative;
-}
-
 .btn-secondary {
     background: var(--bg-dark);
     color: var(--text);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.fab:hover {
+    filter: brightness(1.1);
 }
 
 /* Empty state */
@@ -773,4 +793,24 @@ header h1 {
         border-left-color: transparent;
         border-bottom-color: var(--primary);
     }
+}
+
+/* ---------- Barras de desplazamiento (tema oscuro) ---------- */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
 }

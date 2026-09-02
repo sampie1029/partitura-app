@@ -7,7 +7,7 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v23';
+const CACHE_NAME = 'partituras-v24';
 
 // Rutas relativas de los archivos core (se resuelven contra el scope del SW,
 // que puede ser la raíz o una subcarpeta como /partitura-app/ en GitHub Pages).

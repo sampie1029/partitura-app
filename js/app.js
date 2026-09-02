@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.10.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 

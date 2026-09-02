@@ -321,6 +321,9 @@ header h1 {
     padding: 0;
     touch-action: pan-x pan-y;
     position: relative;
+    /* En Android, al llegar al borde no queremos que salte el
+       "tirar para recargar" mientras se mueve la partitura. */
+    overscroll-behavior: contain;
 }
 
 /* Marco que siempre ocupa al menos el área visible. Centra la página con

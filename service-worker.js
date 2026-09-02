@@ -7,7 +7,7 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v26';
+const CACHE_NAME = 'partituras-v27';
 
 // Rutas relativas de los archivos core (se resuelven contra el scope del SW,
 // que puede ser la raíz o una subcarpeta como /partitura-app/ en GitHub Pages).
@@ -18,6 +18,8 @@ const CORE_ASSET_PATHS = [
     './js/app.js',
     './manifest.json',
     './version.json',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
     './lib/pdfjs/pdf.min.js',
     './lib/pdfjs/pdf.worker.min.js'
 ];

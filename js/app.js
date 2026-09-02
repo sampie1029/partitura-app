@@ -59,6 +59,7 @@ let currentPage = 1;
 let zoomMode = 'fit';      // 'fit' = escala completa (cabe en pantalla), 'actual' = escala real 1:1
 let currentZoomScale = 1;  // escala usada cuando zoomMode es 'custom'
 let currentPdfScale = 1;   // escala real con la que se renderizó la página actual
+let renderToken = 0;       // identifica el renderizado más reciente para cancelar los anteriores
 
 // Elementos DOM
 const sheetList = document.getElementById('sheetList');
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.10.2';
+const APP_VERSION = '1.10.3';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -691,14 +692,24 @@ async function openSheet(id) {
     } catch (err) {
         console.error('Error al abrir PDF:', err);
         alert('Error al abrir la partitura. El archivo puede estar dañado.');
+        // Cerrar el visor para no dejar la pantalla en negro
+        viewer.classList.add('hidden');
+        pdfDoc = null;
+        currentSheet = null;
+        history.pushState({ viewer: 'closed' }, '', '#');
     }
 }
 
 async function deleteSheet(id) {
     if (!confirm('¿Eliminar esta partitura?')) return;
-    await dbDeleteSheet(id);
-    sheets = await dbGetAllSheets();
-    renderSheets();
+    try {
+        await dbDeleteSheet(id);
+        sheets = await dbGetAllSheets();
+        renderSheets();
+    } catch (err) {
+        console.error('Error al eliminar la partitura:', err);
+        alert('No se pudo eliminar la partitura. Inténtalo de nuevo.');
+    }
 }
 
 function closeViewer() {
@@ -722,6 +733,10 @@ window.addEventListener('popstate', (e) => {
 
 async function renderPage(num) {
     if (!pdfDoc) return;
+
+    // Marcar este renderizado como el más reciente. Si llega otro render
+    // mientras este trabaja, el anterior se descarta para evitar que se pisen.
+    const token = ++renderToken;
 
     const page = await pdfDoc.getPage(num);
     const baseViewport = page.getViewport({ scale: 1 });
@@ -748,6 +763,9 @@ async function renderPage(num) {
         scale = currentZoomScale;
     }
 
+    // Si mientras esperábamos la página llegó otro render más reciente, paramos.
+    if (token !== renderToken) return;
+
     currentPdfScale = scale;
     const viewport = page.getViewport({ scale });
 
@@ -765,6 +783,9 @@ async function renderPage(num) {
     ctx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
 
     await page.render({ canvasContext: ctx, viewport }).promise;
+    // Volver a comprobar: si hubo otro render mientras dibujábamos,
+    // no actualizar la info de página para no pisar la vista correcta.
+    if (token !== renderToken) return;
     pageInfo.textContent = `Página ${num} de ${pdfDoc.numPages}`;
 }
 
@@ -775,7 +796,7 @@ function setZoomMode(mode) {
         pdfContainer.classList.toggle('zoomed', false);
         document.getElementById('fitBtn').classList.toggle('active', mode === 'fit');
         document.getElementById('actualBtn').classList.toggle('active', mode === 'actual');
-        renderPage(currentPage);
+        renderPage(currentPage).catch(err => console.error('Error al cambiar de modo de escala:', err));
     };
 }
 
@@ -914,20 +935,29 @@ function setupSwipeNavigation() {
         if (wasMultiTouch && e.touches.length === 0) {
             document.getElementById('fitBtn').classList.remove('active');
             document.getElementById('actualBtn').classList.remove('active');
-            if (zoomMode === 'custom') {
-                // Re-render a la escala final para nitidez, preservando el
-                // punto focal (no saltar al centro).
-                await renderPage(currentPage);
-            } else if (zoomMode === 'fit') {
-                await renderPage(currentPage);
-            } else if (zoomMode === 'actual') {
-                await renderPage(currentPage);
+            try {
+                if (zoomMode === 'custom') {
+                    // Re-render a la escala final para nitidez, preservando el
+                    // punto focal (no saltar al centro).
+                    await renderPage(currentPage);
+                } else if (zoomMode === 'fit') {
+                    await renderPage(currentPage);
+                } else if (zoomMode === 'actual') {
+                    await renderPage(currentPage);
+                }
+                pdfContainer.classList.toggle('zoomed', zoomMode === 'custom' && currentZoomScale > 1.01);
+            } catch (err) {
+                console.error('Error al renderizar tras el gesto:', err);
+                // No dejar la pantalla en modo zoom si falló el renderizado
+                pdfContainer.classList.toggle('zoomed', false);
+            } finally {
+                // Limpiar SIEMPRE el estado del gesto, aunque falle, para que
+                // los toques normales sigan funcionando.
+                wasMultiTouch = false;
+                startDist = null;
+                startX = null;
+                startY = null;
             }
-            pdfContainer.classList.toggle('zoomed', zoomMode === 'custom' && currentZoomScale > 1.01);
-            wasMultiTouch = false;
-            startDist = null;
-            startX = null;
-            startY = null;
             return;
         }
 
@@ -1038,7 +1068,7 @@ function changePage(delta) {
     const newPage = currentPage + delta;
     if (newPage >= 1 && newPage <= pdfDoc.numPages) {
         currentPage = newPage;
-        renderPage(currentPage);
+        renderPage(currentPage).catch(err => console.error('Error al cambiar de página:', err));
     }
 }
 

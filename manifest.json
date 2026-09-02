@@ -6,20 +6,22 @@
     "scope": "./",
     "display": "fullscreen",
     "display_override": ["fullscreen", "standalone", "minimal-ui"],
-    "version": "1.10.2",
+    "version": "1.10.3",
     "background_color": "#1a1a2e",
-    "theme_color": "#e94560",
+    "theme_color": "#1a1a2e",
     "orientation": "any",
     "icons": [
         {
             "src": "icons/icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
             "src": "icons/icon-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
     ]
 }

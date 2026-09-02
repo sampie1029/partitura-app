@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -369,8 +369,6 @@ function setupEventListeners() {
 
     // Visor
     document.getElementById('backBtn').addEventListener('click', closeViewer);
-    document.getElementById('zoomInBtn').addEventListener('click', () => changeZoom(1));
-    document.getElementById('zoomOutBtn').addEventListener('click', () => changeZoom(-1));
     document.getElementById('fitBtn').addEventListener('click', setZoomMode('fit'));
     document.getElementById('actualBtn').addEventListener('click', setZoomMode('actual'));
     setupSwipeNavigation();
@@ -694,11 +692,13 @@ async function renderPage(num) {
     let scale;
 
     if (zoomMode === 'fit') {
-        // Escala completa: que quepa en la pantalla disponible
-        const maxWidth = pdfContainer.clientWidth - 16;
-        const maxHeight = pdfContainer.clientHeight - 16;
-        const scaleWidth = maxWidth / baseViewport.width;
+        // Escala completa: que ocupe todo el largo de la pantalla
+        const maxHeight = pdfContainer.clientHeight - 8;
+        const maxWidth = pdfContainer.clientWidth - 8;
+        // Priorizar que ocupe el alto (largo) completo de la pantalla
         const scaleHeight = maxHeight / baseViewport.height;
+        const scaleWidth = maxWidth / baseViewport.width;
+        // Escoge la mayor escala que quepa sin recortar contenido
         scale = Math.min(scaleWidth, scaleHeight);
     } else if (zoomMode === 'actual') {
         // Escala real 1:1
@@ -720,93 +720,176 @@ async function renderPage(num) {
 
     await page.render({ canvasContext: ctx, viewport }).promise;
     pageInfo.textContent = `Página ${num} de ${pdfDoc.numPages}`;
-    updateZoomLabel();
 }
 
 function setZoomMode(mode) {
     return () => {
         zoomMode = mode;
+        pdfCanvas.style.transform = '';
+        pdfContainer.classList.toggle('zoomed', false);
         document.getElementById('fitBtn').classList.toggle('active', mode === 'fit');
         document.getElementById('actualBtn').classList.toggle('active', mode === 'actual');
         renderPage(currentPage);
     };
 }
 
-function changeZoom(delta) {
-    // Al hacer zoom manual, pasamos a modo custom manteniendo como base
-    // la escala actual (fit o real)
-    const step = 0.2;
-    let current = zoomMode === 'fit' ? currentPdfScale : (zoomMode === 'actual' ? 1 : currentZoomScale);
-    zoomMode = 'custom';
-    currentZoomScale = Math.max(0.3, Math.min(4, current + delta * step));
-    document.getElementById('fitBtn').classList.remove('active');
-    document.getElementById('actualBtn').classList.remove('active');
-    renderPage(currentPage);
-}
-
-function updateZoomLabel() {
-    const label = document.getElementById('zoomLabel');
-    let text;
-    if (zoomMode === 'fit') {
-        text = 'Ajustar';
-    } else if (zoomMode === 'actual') {
-        text = '1:1';
-    } else {
-        text = Math.round(currentZoomScale * 100) + '%';
-    }
-    label.textContent = text;
-}
-
-// Navegación por gestos: deslizar hacia la izquierda/derecha
-// cambia de página. También se puede tocar en los lados de la pantalla.
+// Gestos en el visor:
+// - Un dedo: toque en la izquierda/derecha para cambiar de página
+// - Dos dedos: abrir/cerrar (pinch) para hacer zoom
+// - Deslizar con un dedo: también cambia de página
 function setupSwipeNavigation() {
-    let startX = null;
+    let touchCount = 0;
+    let startDist = null;         // distancia inicial entre 2 dedos
+    let startScale = 1;           // escala al comenzar el pinch
+    let startX = null;            // para detectar toque/deslizamiento de 1 dedo
     let startY = null;
-    const SWIPE_THRESHOLD = 60; // píxeles mínimos para activar el gesto
+    let startTime = null;
+    let moved = false;
+    let wasMultiTouch = false;
+
+    const SWIPE_THRESHOLD = 50;
+    const TAP_MAX_MOVE = 20;      // píxeles máximos para considerarlo "toque" no deslizamiento
+    const TAP_MAX_TIME = 500;     // ms máximos para que un toque sea válido
+    const EDGE_WIDTH = 70;        // % de ancho lateral para el toque (izquierda/derecha)
 
     pdfContainer.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
+        touchCount = e.touches.length;
+
+        if (touchCount >= 2) {
+            // Inicio del pinch (zoom con dos dedos)
+            wasMultiTouch = true;
+            touchCount = e.touches.length;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            startDist = Math.sqrt(dx * dx + dy * dy);
+            startScale = zoomMode === 'fit' ? currentPdfScale : (zoomMode === 'actual' ? 1 : currentZoomScale);
+        } else if (touchCount === 1) {
+            // Inicio de un gesto de un dedo (toque o deslizamiento)
+            if (!wasMultiTouch) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                startTime = Date.now();
+                moved = false;
+            }
         }
     }, { passive: true });
 
-    pdfContainer.addEventListener('touchend', (e) => {
-        if (startX === null) return;
-        const endX = e.changedTouches[0].clientX;
-        const endY = e.changedTouches[0].clientY;
-        const diffX = startX - endX;
-        const diffY = startY - endY;
-
-        // Solo considerar deslizamiento horizontal claro
-        if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
-            if (diffX > 0) {
-                changePage(1);  // deslizar a la izquierda = siguiente página
-            } else {
-                changePage(-1); // deslizar a la derecha = página anterior
+    pdfContainer.addEventListener('touchmove', (e) => {
+        // Zoom con dos dedos
+        if (e.touches.length >= 2 && startDist !== null) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const ratio = dist / startDist;
+            const newScale = Math.max(0.3, Math.min(4, startScale * ratio));
+            // Aplicar zoom dinámico vía transform CSS (fluido, sin re-render)
+            zoomMode = 'custom';
+            currentZoomScale = newScale;
+            pdfCanvas.style.transform = `scale(${newScale / currentPdfScale})`;
+            pdfCanvas.style.transformOrigin = 'center center';
+            // Permitir desplazamiento si la escala es mayor que 1
+            pdfContainer.classList.toggle('zoomed', newScale > 1.01);
+            // Marcar como gesto de zoom para no cambiar de página
+            wasMultiTouch = true;
+        } else if (e.touches.length === 1 && startX !== null) {
+            // Desplazamiento de un dedo
+            const diffX = e.touches[0].clientX - startX;
+            const diffY = e.touches[0].clientY - startY;
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > TAP_MAX_MOVE) {
+                moved = true;
             }
+        }
+    }, { passive: true });
+
+    pdfContainer.addEventListener('touchend', async (e) => {
+        // Si terminó el gesto de zoom con dos dedos
+        if (wasMultiTouch && e.touches.length === 0) {
+            // Resetear transform y re-renderizar al tamaño final (nitidez)
+            pdfCanvas.style.transform = '';
+            document.getElementById('fitBtn').classList.remove('active');
+            document.getElementById('actualBtn').classList.remove('active');
+            // Re-render a la escala final una sola vez (no por movimiento)
+            if (zoomMode === 'custom') {
+                await renderPage(currentPage);
+            }
+            pdfContainer.classList.toggle('zoomed', zoomMode === 'custom' && currentZoomScale > 1.01);
+            wasMultiTouch = false;
+            startDist = null;
             startX = null;
+            startY = null;
+            return;
+        }
+
+        // Manejar gesto de un dedo (toque o deslizamiento)
+        if (startX !== null && !wasMultiTouch) {
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const diffX = startX - endX;
+            const diffY = startY - endY;
+            const elapsed = Date.now() - startTime;
+            const containerWidth = pdfContainer.clientWidth;
+
+            if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+                // Deslizamiento horizontal: cambiar de página
+                if (diffX > 0) changePage(1);
+                else changePage(-1);
+            } else if (!moved && elapsed < TAP_MAX_TIME && Math.abs(diffX) < TAP_MAX_MOVE && Math.abs(diffY) < TAP_MAX_MOVE) {
+                // Toque simple: si es en el lado izquierdo -> ir hacia atrás,
+                // si es en el lado derecho -> ir hacia adelante
+                const tapX = e.changedTouches[0].clientX;
+                if (tapX < containerWidth * 0.35) {
+                    changePage(-1);  // toque a la izquierda = página anterior
+                } else if (tapX > containerWidth * 0.65) {
+                    changePage(1);   // toque a la derecha = siguiente página
+                }
+            }
+
+            startX = null;
+            startY = null;
+            moved = false;
         }
     }, { passive: true });
 
     pdfContainer.addEventListener('touchcancel', () => {
         startX = null;
+        startY = null;
+        startDist = null;
+        wasMultiTouch = false;
+        moved = false;
     }, { passive: true });
 
-    // También soporte para ratón (pruebas en Mac)
+    // Soporte para ratón (pruebas en Mac): toque/deslizamiento
     let mouseDownX = null;
+    let mouseDownY = null;
+    let mouseMoved = false;
     pdfContainer.addEventListener('mousedown', (e) => {
         mouseDownX = e.clientX;
+        mouseDownY = e.clientY;
+        mouseMoved = false;
+    });
+    pdfContainer.addEventListener('mousemove', (e) => {
+        if (mouseDownX !== null) {
+            const dx = Math.abs(e.clientX - mouseDownX);
+            const dy = Math.abs(e.clientY - mouseDownY);
+            if (dx > TAP_MAX_MOVE || dy > TAP_MAX_MOVE) mouseMoved = true;
+        }
     });
     pdfContainer.addEventListener('mouseup', (e) => {
         if (mouseDownX === null) return;
         const diffX = mouseDownX - e.clientX;
-        if (Math.abs(diffX) > SWIPE_THRESHOLD) {
-            if (diffX > 0) {
-                changePage(1);
-            } else {
+        const diffY = mouseDownY - e.clientY;
+        const containerWidth = pdfContainer.clientWidth;
+
+        if (!mouseMoved) {
+            // Toque de ratón: zonas laterales
+            if (e.clientX < containerWidth * 0.35) {
                 changePage(-1);
+            } else if (e.clientX > containerWidth * 0.65) {
+                changePage(1);
             }
+        } else if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+            if (diffX > 0) changePage(1);
+            else changePage(-1);
         }
         mouseDownX = null;
     });

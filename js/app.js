@@ -56,6 +56,9 @@ let currentCategory = 'todos';
 let currentSheet = null;
 let pdfDoc = null;
 let currentPage = 1;
+let zoomMode = 'fit';      // 'fit' = escala completa (cabe en pantalla), 'actual' = escala real 1:1
+let currentZoomScale = 1;  // escala usada cuando zoomMode es 'custom'
+let currentPdfScale = 1;   // escala real con la que se renderizó la página actual
 
 // Elementos DOM
 const sheetList = document.getElementById('sheetList');
@@ -88,7 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.6.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -366,7 +369,10 @@ function setupEventListeners() {
 
     // Visor
     document.getElementById('backBtn').addEventListener('click', closeViewer);
-    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    document.getElementById('zoomInBtn').addEventListener('click', () => changeZoom(1));
+    document.getElementById('zoomOutBtn').addEventListener('click', () => changeZoom(-1));
+    document.getElementById('fitBtn').addEventListener('click', setZoomMode('fit'));
+    document.getElementById('actualBtn').addEventListener('click', setZoomMode('actual'));
     setupSwipeNavigation();
 
     // Modal
@@ -399,6 +405,8 @@ function openSettings() {
     updateSettingsSheetCount();
     updateSettingsStorage();
 
+    // Registrar en el historial para que "atrás" cierre la configuración
+    history.pushState({ settings: 'open' }, '', '#config');
     // Mostrar panel de resumen por defecto
     activateSettingsPanel('resumen');
     document.getElementById('settingsScreen').classList.remove('hidden');
@@ -627,12 +635,19 @@ async function openSheet(id) {
 
     viewerTitle.textContent = currentSheet.name;
     currentPage = 1;
+    // Al abrir una partitura, empezamos en escala completa
+    zoomMode = 'fit';
+    document.getElementById('fitBtn').classList.add('active');
+    document.getElementById('actualBtn').classList.remove('active');
 
     try {
         // Asegurarse de que el archivo es un Blob válido
         let fileData = currentSheet.file;
         if (fileData instanceof Blob) {
             const arrayBuffer = await fileData.arrayBuffer();
+            // Registrar en el historial para que el botón "atrás" de Android
+            // vuelva al menú de partituras en lugar de cerrar la app.
+            history.pushState({ viewer: 'open' }, '', '#partitura');
             viewer.classList.remove('hidden');
             pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             await renderPage(currentPage);
@@ -654,28 +669,92 @@ async function deleteSheet(id) {
 
 function closeViewer() {
     viewer.classList.add('hidden');
-    if (currentSheet && currentSheet.url) {
-        URL.revokeObjectURL(currentSheet.url);
-    }
     pdfDoc = null;
     currentSheet = null;
 }
+
+// Manejar el botón "atrás" del navegador/Android
+window.addEventListener('popstate', (e) => {
+    if (!viewer.classList.contains('hidden')) {
+        // Hay una partitura abierta: al pulsar atrás, cerramos el visor
+        // y volvemos a la lista. No salimos de la app.
+        e.preventDefault();
+        closeViewer();
+    } else if (!document.getElementById('settingsScreen').classList.contains('hidden')) {
+        // Si hay configuraciones abiertas, cerrarlas también
+        closeSettings();
+    }
+});
 
 async function renderPage(num) {
     if (!pdfDoc) return;
 
     const page = await pdfDoc.getPage(num);
-    // Ajustar escala para que quepa en pantalla
     const baseViewport = page.getViewport({ scale: 1 });
-    const maxWidth = pdfContainer.clientWidth - 20;
-    const scale = Math.min(1.5, maxWidth / baseViewport.width);
+    let scale;
+
+    if (zoomMode === 'fit') {
+        // Escala completa: que quepa en la pantalla disponible
+        const maxWidth = pdfContainer.clientWidth - 16;
+        const maxHeight = pdfContainer.clientHeight - 16;
+        const scaleWidth = maxWidth / baseViewport.width;
+        const scaleHeight = maxHeight / baseViewport.height;
+        scale = Math.min(scaleWidth, scaleHeight);
+    } else if (zoomMode === 'actual') {
+        // Escala real 1:1
+        scale = 1;
+    } else {
+        // Modo custom (zoom manual)
+        scale = currentZoomScale;
+    }
+
+    currentPdfScale = scale;
     const viewport = page.getViewport({ scale });
 
     pdfCanvas.height = viewport.height;
     pdfCanvas.width = viewport.width;
 
+    // Limpiar transformaciones previas del canvas
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+
     await page.render({ canvasContext: ctx, viewport }).promise;
     pageInfo.textContent = `Página ${num} de ${pdfDoc.numPages}`;
+    updateZoomLabel();
+}
+
+function setZoomMode(mode) {
+    return () => {
+        zoomMode = mode;
+        document.getElementById('fitBtn').classList.toggle('active', mode === 'fit');
+        document.getElementById('actualBtn').classList.toggle('active', mode === 'actual');
+        renderPage(currentPage);
+    };
+}
+
+function changeZoom(delta) {
+    // Al hacer zoom manual, pasamos a modo custom manteniendo como base
+    // la escala actual (fit o real)
+    const step = 0.2;
+    let current = zoomMode === 'fit' ? currentPdfScale : (zoomMode === 'actual' ? 1 : currentZoomScale);
+    zoomMode = 'custom';
+    currentZoomScale = Math.max(0.3, Math.min(4, current + delta * step));
+    document.getElementById('fitBtn').classList.remove('active');
+    document.getElementById('actualBtn').classList.remove('active');
+    renderPage(currentPage);
+}
+
+function updateZoomLabel() {
+    const label = document.getElementById('zoomLabel');
+    let text;
+    if (zoomMode === 'fit') {
+        text = 'Ajustar';
+    } else if (zoomMode === 'actual') {
+        text = '1:1';
+    } else {
+        text = Math.round(currentZoomScale * 100) + '%';
+    }
+    label.textContent = text;
 }
 
 // Navegación por gestos: deslizar hacia la izquierda/derecha
@@ -739,14 +818,6 @@ function changePage(delta) {
     if (newPage >= 1 && newPage <= pdfDoc.numPages) {
         currentPage = newPage;
         renderPage(currentPage);
-    }
-}
-
-function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        document.exitFullscreen();
     }
 }
 

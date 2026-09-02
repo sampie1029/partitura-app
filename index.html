@@ -45,14 +45,22 @@
         <header class="viewer-header">
             <button id="backBtn" class="icon-btn">←</button>
             <h2 id="viewerTitle">Partitura</h2>
-            <button id="fullscreenBtn" class="icon-btn">⛶</button>
+            <div class="viewer-actions">
+                <button id="zoomBtn" class="icon-btn" title="Escala">⛶</button>
+            </div>
         </header>
         <div id="pdfContainer">
             <canvas id="pdfCanvas"></canvas>
         </div>
         <div class="viewer-controls">
             <span id="pageInfo">Página 1 de 1</span>
-            <span class="swipe-hint">Desliza ← → para cambiar de página</span>
+            <div class="zoom-controls">
+                <button id="zoomOutBtn" class="ctrl-btn">−</button>
+                <span id="zoomLabel" class="zoom-label">Ajustar</span>
+                <button id="zoomInBtn" class="ctrl-btn">+</button>
+                <button id="fitBtn" class="ctrl-btn fit-btn">⛶ Escala completa</button>
+                <button id="actualBtn" class="ctrl-btn actual-btn">1:1 Escala real</button>
+            </div>
         </div>
     </div>
 

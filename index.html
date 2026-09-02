@@ -15,7 +15,12 @@
     <!-- Pantalla Principal -->
     <div id="app">
         <header>
-            <h1>Mis Partituras</h1>
+            <div class="header-top">
+                <h1>Mis Partituras</h1>
+                <div class="header-actions">
+                    <button id="settingsBtn" class="settings-btn" title="Configuración">⚙️</button>
+                </div>
+            </div>
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Buscar partitura...">
             </div>
@@ -83,6 +88,34 @@
             <div class="modal-actions">
                 <button id="updateLater" class="btn-secondary">Más tarde</button>
                 <button id="updateNow" class="btn-primary">Actualizar ahora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configuración -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content settings-modal">
+            <div class="settings-header">
+                <h3>Configuración</h3>
+                <button id="closeSettings" class="icon-btn close-x">×</button>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-row">
+                    <span class="settings-label">Versión de la app</span>
+                    <span id="settingsVersion" class="settings-value">-</span>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h4>Actualizaciones</h4>
+                <button id="checkUpdateBtn" class="settings-action">🔍 Buscar actualizaciones</button>
+                <div id="updateStatus" class="settings-status"></div>
+            </div>
+
+            <div class="settings-section">
+                <h4>Acerca de</h4>
+                <p class="settings-about">App de partituras offline. Tus partituras se guardan en este dispositivo y nunca se pierden.</p>
             </div>
         </div>
     </div>

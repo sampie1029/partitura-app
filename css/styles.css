@@ -38,6 +38,32 @@ header h1 {
     margin-bottom: 15px;
 }
 
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.header-top h1 {
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+}
+
+.settings-btn {
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1;
+    filter: grayscale(0.3);
+}
+
 .search-box input {
     width: 100%;
     padding: 12px 15px;
@@ -361,4 +387,105 @@ header h1 {
 #toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* ===== Modal de Configuración ===== */
+.settings-modal {
+    padding: 20px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.settings-header h3 {
+    margin: 0;
+}
+
+.close-x {
+    font-size: 1.8rem;
+    color: var(--text-muted);
+}
+
+.settings-section {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+}
+
+.settings-section h4 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.settings-label {
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.settings-value {
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+.settings-action {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--bg-dark);
+    color: var(--text);
+    font-size: 1rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.2s;
+}
+
+.settings-action:hover {
+    background: rgba(233, 69, 96, 0.2);
+}
+
+.settings-action:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.settings-status {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    min-height: 20px;
+}
+
+.settings-status.success {
+    color: #4ade80;
+}
+
+.settings-status.error {
+    color: #ef4444;
+}
+
+.settings-about {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
 }

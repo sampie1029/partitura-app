@@ -7,7 +7,7 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v5';
+const CACHE_NAME = 'partituras-v6';
 
 // Los archivos core se precachean al instalar.
 const CORE_ASSETS = [
@@ -16,6 +16,7 @@ const CORE_ASSETS = [
     '/css/styles.css',
     '/js/app.js',
     '/manifest.json',
+    '/version.json',
     '/lib/pdfjs/pdf.min.js',
     '/lib/pdfjs/pdf.worker.min.js'
 ];

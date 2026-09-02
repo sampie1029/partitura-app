@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -374,9 +374,19 @@ function setupEventListeners() {
     document.getElementById('cancelAdd').addEventListener('click', closeModal);
     document.getElementById('confirmAdd').addEventListener('click', addSheet);
 
+    // Configuración
+    document.getElementById('settingsBtn').addEventListener('click', openSettings);
+    document.getElementById('closeSettings').addEventListener('click', closeSettings);
+    document.getElementById('checkUpdateBtn').addEventListener('click', manualCheckForUpdates);
+
     // Cerrar modal al hacer clic fuera
     addModal.addEventListener('click', (e) => {
         if (e.target === addModal) closeModal();
+    });
+
+    const settingsModal = document.getElementById('settingsModal');
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) closeSettings();
     });
 
     // Mostrar nombre de archivo seleccionado
@@ -384,6 +394,69 @@ function setupEventListeners() {
         const file = e.target.files[0];
         showAddError('');
     });
+}
+
+function openSettings() {
+    document.getElementById('settingsVersion').textContent = `v${APP_VERSION}`;
+    setUpdateStatus('', '');
+    document.getElementById('settingsModal').classList.remove('hidden');
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function setUpdateStatus(msg, type) {
+    const status = document.getElementById('updateStatus');
+    status.textContent = msg;
+    status.className = 'settings-status' + (type ? ' ' + type : '');
+}
+
+async function manualCheckForUpdates() {
+    const btn = document.getElementById('checkUpdateBtn');
+    btn.disabled = true;
+    setUpdateStatus('🔍 Buscando actualizaciones...', '');
+
+    try {
+        // Obtener la versión más reciente desde el servidor (GitHub Pages)
+        const cacheBust = '?t=' + Date.now(); // evita cache
+        const res = await fetch('version.json' + cacheBust, { cache: 'no-store' });
+        if (!res.ok) throw new Error('No se pudo conectar');
+        const data = await res.json();
+        const latest = data.version;
+
+        const current = APP_VERSION;
+
+        if (compareVersions(latest, current) > 0) {
+            // Hay una versión nueva disponible
+            setUpdateStatus(`✅ Hay una versión nueva: v${latest} (tienes v${current})`, 'success');
+            // Ofrecer actualizar
+            const shouldUpdate = await askToUpdate(current, latest);
+            if (shouldUpdate) {
+                await applyUpdate();
+            }
+        } else {
+            setUpdateStatus(`✅ Ya tienes la última versión (v${current})`, 'success');
+        }
+    } catch (e) {
+        console.error('Error al buscar actualizaciones:', e);
+        setUpdateStatus('⚠️ No se pudo comprobar (revisa tu conexión)', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// Compara dos versiones "x.y.z" -> devuelve >0 si a es mayor, 0 igual, <0 si menor
+function compareVersions(a, b) {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const va = pa[i] || 0;
+        const vb = pb[i] || 0;
+        if (va > vb) return 1;
+        if (va < vb) return -1;
+    }
+    return 0;
 }
 
 function openModal() {

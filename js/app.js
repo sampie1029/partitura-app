@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.4';
+const APP_VERSION = '1.8.5';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -849,6 +849,7 @@ function toggleDock(force) {
 // - Un dedo: toque en la izquierda/derecha para cambiar de página
 // - Dos dedos: abrir/cerrar (pinch) para hacer zoom
 // - Deslizar con un dedo: también cambia de página
+// - Doble toque en el centro: abrir/cerrar el dock superior
 function setupSwipeNavigation() {
     let touchCount = 0;
     let startDist = null;         // distancia inicial entre 2 dedos
@@ -863,6 +864,12 @@ function setupSwipeNavigation() {
     const TAP_MAX_MOVE = 20;      // píxeles máximos para considerarlo "toque" no deslizamiento
     const TAP_MAX_TIME = 500;     // ms máximos para que un toque sea válido
     const EDGE_WIDTH = 70;        // % de ancho lateral para el toque (izquierda/derecha)
+    // Variables para detectar el doble toque que abre/cierra el dock
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    const DOUBLE_TAP_TIME = 350;  // ms entre los dos toques para considerarlo doble
+    const DOUBLE_TAP_MOVE = 40;   // píxeles máximos de separación entre los dos toques
 
     pdfContainer.addEventListener('touchstart', (e) => {
         touchCount = e.touches.length;
@@ -943,19 +950,37 @@ function setupSwipeNavigation() {
 
             if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
                 // Deslizamiento horizontal: cambiar de página
+                lastTapTime = 0; // resetear detección de doble toque
                 if (diffX > 0) changePage(1);
                 else changePage(-1);
             } else if (!moved && elapsed < TAP_MAX_TIME && Math.abs(diffX) < TAP_MAX_MOVE && Math.abs(diffY) < TAP_MAX_MOVE) {
                 // Toque simple: si es en el lado izquierdo -> ir hacia atrás,
                 // si es en el lado derecho -> ir hacia adelante
                 const tapX = e.changedTouches[0].clientX;
+                const tapY = e.changedTouches[0].clientY;
                 if (tapX < containerWidth * 0.30) {
                     changePage(-1);  // toque a la izquierda = página anterior
                 } else if (tapX > containerWidth * 0.70) {
                     changePage(1);   // toque a la derecha = siguiente página
                 } else {
-                    // Toque en el centro (franja amplia): mostrar/ocultar el dock
-                    toggleDock();
+                    // Toque en el centro: abrir/cerrar el dock con DOBLE toque
+                    const now = Date.now();
+                    const dt = now - lastTapTime;
+                    const dx = tapX - lastTapX;
+                    const dy = tapY - lastTapY;
+                    const isDoubleTap = dt < DOUBLE_TAP_TIME &&
+                                        dt > 0 &&
+                                        Math.abs(dx) < DOUBLE_TAP_MOVE &&
+                                        Math.abs(dy) < DOUBLE_TAP_MOVE;
+                    if (isDoubleTap) {
+                        toggleDock(); // doble toque: abrir/cerrar el dock
+                        lastTapTime = 0; // resetear para no acumular
+                    } else {
+                        // Primer toque del posible doble
+                        lastTapTime = now;
+                        lastTapX = tapX;
+                        lastTapY = tapY;
+                    }
                 }
             }
 
@@ -971,6 +996,7 @@ function setupSwipeNavigation() {
         startDist = null;
         wasMultiTouch = false;
         moved = false;
+        lastTapTime = 0;
     }, { passive: true });
 
     // Soporte para ratón (pruebas en Mac): toque/deslizamiento
@@ -1002,7 +1028,10 @@ function setupSwipeNavigation() {
             } else if (e.clientX > containerWidth * 0.70) {
                 changePage(1);
             } else {
-                toggleDock();
+                // Centro: abrir/cerrar el dock con DOBLE clic
+                if (e.detail >= 2) {
+                    toggleDock();
+                }
             }
         } else if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
             if (diffX > 0) changePage(1);

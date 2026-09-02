@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.2';
+const APP_VERSION = '1.8.3';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -397,7 +397,11 @@ function setupEventListeners() {
 
     // Visor
     document.getElementById('backBtn').addEventListener('click', closeViewer);
-    document.getElementById('viewerSettingsBtn').addEventListener('click', openSettings);
+    // Configuración de la partitura (por ahora vacía, pronto habrá opciones)
+    document.getElementById('viewerSettingsBtn').addEventListener('click', () => {
+        optionsMenu.classList.add('hidden');
+        showToast('⚙️ Ajustes de la partitura (próximamente)');
+    });
     // Botón de opciones (⋯): desplegar/ocultar el mini menú
     document.getElementById('optionsBtn').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -902,12 +906,12 @@ function setupSwipeNavigation() {
                 // Toque simple: si es en el lado izquierdo -> ir hacia atrás,
                 // si es en el lado derecho -> ir hacia adelante
                 const tapX = e.changedTouches[0].clientX;
-                if (tapX < containerWidth * 0.35) {
+                if (tapX < containerWidth * 0.30) {
                     changePage(-1);  // toque a la izquierda = página anterior
-                } else if (tapX > containerWidth * 0.65) {
+                } else if (tapX > containerWidth * 0.70) {
                     changePage(1);   // toque a la derecha = siguiente página
                 } else {
-                    // Toque en el centro: mostrar/ocultar el dock
+                    // Toque en el centro (franja amplia): mostrar/ocultar el dock
                     toggleDock();
                 }
             }
@@ -950,9 +954,9 @@ function setupSwipeNavigation() {
 
         if (!mouseMoved) {
             // Toque de ratón: zonas laterales / centro
-            if (e.clientX < containerWidth * 0.35) {
+            if (e.clientX < containerWidth * 0.30) {
                 changePage(-1);
-            } else if (e.clientX > containerWidth * 0.65) {
+            } else if (e.clientX > containerWidth * 0.70) {
                 changePage(1);
             } else {
                 toggleDock();

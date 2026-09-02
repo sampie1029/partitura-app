@@ -42,22 +42,25 @@
 
     <!-- Visor de Partitura -->
     <div id="viewer" class="hidden">
-        <header class="viewer-header">
-            <button id="backBtn" class="icon-btn">←</button>
+        <!-- Dock superior desplegable: aparece/oculta al tocar la pantalla -->
+        <div id="viewerDock" class="viewer-dock dock-hidden">
+            <button id="backBtn" class="dock-btn" title="Volver">←</button>
             <h2 id="viewerTitle">Partitura</h2>
-            <div class="viewer-actions">
-                <button id="zoomBtn" class="icon-btn" title="Escala">⛶</button>
+            <div class="dock-actions">
+                <!-- Botón de opciones: despliega el mini menú -->
+                <div class="dock-menu-wrap">
+                    <button id="optionsBtn" class="dock-btn" title="Opciones">⋯</button>
+                    <div id="optionsMenu" class="dock-menu hidden">
+                        <button id="fitBtn" class="dock-menu-item">⛶ Escala completa</button>
+                        <button id="actualBtn" class="dock-menu-item">1:1 Escala real</button>
+                        <span id="pageInfo" class="dock-page-info">Página 1 de 1</span>
+                    </div>
+                </div>
+                <button id="viewerSettingsBtn" class="dock-btn" title="Configuración">⚙️</button>
             </div>
-        </header>
+        </div>
         <div id="pdfContainer">
             <canvas id="pdfCanvas"></canvas>
-        </div>
-        <div class="viewer-controls">
-            <div class="zoom-controls">
-                <button id="fitBtn" class="ctrl-btn fit-btn">⛶ Escala completa</button>
-                <button id="actualBtn" class="ctrl-btn actual-btn">1:1 Escala real</button>
-            </div>
-            <span id="pageInfo">Página 1 de 1</span>
         </div>
     </div>
 

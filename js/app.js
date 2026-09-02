@@ -69,6 +69,9 @@ const pdfCanvas = document.getElementById('pdfCanvas');
 const ctx = pdfCanvas.getContext('2d');
 const pageInfo = document.getElementById('pageInfo');
 const viewerTitle = document.getElementById('viewerTitle');
+const viewerDock = document.getElementById('viewerDock');
+const optionsBtn = document.getElementById('optionsBtn');
+const optionsMenu = document.getElementById('optionsMenu');
 const addModal = document.getElementById('addModal');
 const addError = document.getElementById('addError');
 
@@ -91,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.8.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -362,9 +365,30 @@ function setupEventListeners() {
 
     // Visor
     document.getElementById('backBtn').addEventListener('click', closeViewer);
-    document.getElementById('fitBtn').addEventListener('click', setZoomMode('fit'));
-    document.getElementById('actualBtn').addEventListener('click', setZoomMode('actual'));
+    document.getElementById('viewerSettingsBtn').addEventListener('click', openSettings);
+    // Botón de opciones (⋯): desplegar/ocultar el mini menú
+    document.getElementById('optionsBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        optionsMenu.classList.toggle('hidden');
+    });
+    document.getElementById('fitBtn').addEventListener('click', () => {
+        setZoomMode('fit')();
+        optionsMenu.classList.add('hidden');
+    });
+    document.getElementById('actualBtn').addEventListener('click', () => {
+        setZoomMode('actual')();
+        optionsMenu.classList.add('hidden');
+    });
     setupSwipeNavigation();
+
+    // Cerrar el mini menú de opciones al hacer clic fuera de él
+    document.addEventListener('click', (e) => {
+        if (!optionsMenu.classList.contains('hidden') &&
+            !optionsMenu.contains(e.target) &&
+            e.target !== optionsBtn) {
+            optionsMenu.classList.add('hidden');
+        }
+    });
 
     // Modal
     document.getElementById('addBtn').addEventListener('click', openModal);
@@ -630,6 +654,9 @@ async function openSheet(id) {
     zoomMode = 'fit';
     document.getElementById('fitBtn').classList.add('active');
     document.getElementById('actualBtn').classList.remove('active');
+    // Modo inmersivo: dock oculto y menú cerrado
+    viewerDock.classList.add('dock-hidden');
+    optionsMenu.classList.add('hidden');
 
     try {
         // Asegurarse de que el archivo es un Blob válido
@@ -685,14 +712,18 @@ async function renderPage(num) {
     let scale;
 
     if (zoomMode === 'fit') {
-        // Escala completa: que ocupe todo el largo de la pantalla
-        const maxHeight = pdfContainer.clientHeight - 8;
-        const maxWidth = pdfContainer.clientWidth - 8;
-        // Priorizar que ocupe el alto (largo) completo de la pantalla
+        // Escala completa: que ocupe todo el largo (alto) de la pantalla.
+        // Como el dock se oculta en modo inmersivo, el alto disponible es
+        // prácticamente toda la pantalla. Usamos el alto completo para que
+        // no queden bordes negros arriba y abajo.
+        const maxHeight = pdfContainer.clientHeight;
+        const maxWidth = pdfContainer.clientWidth;
+        // Priorizar llenar el alto: si no cabe en ancho, permitir desplazamiento
         const scaleHeight = maxHeight / baseViewport.height;
         const scaleWidth = maxWidth / baseViewport.width;
-        // Escoge la mayor escala que quepa sin recortar contenido
-        scale = Math.min(scaleWidth, scaleHeight);
+        scale = scaleHeight; // llena todo el alto
+        // Si al llenar el alto se desborda el ancho, pasamos a modo desplazable
+        pdfContainer.classList.toggle('zoomed', scale > scaleWidth);
     } else if (zoomMode === 'actual') {
         // Escala real 1:1
         scale = 1;
@@ -724,6 +755,15 @@ function setZoomMode(mode) {
         document.getElementById('actualBtn').classList.toggle('active', mode === 'actual');
         renderPage(currentPage);
     };
+}
+
+// Muestra u oculta el dock superior del visor (modo inmersivo)
+function toggleDock(force) {
+    const show = (typeof force === 'boolean') ? force : viewerDock.classList.contains('dock-hidden');
+    // Si vamos a ocultar, también ocultamos el menú de opciones
+    if (!show) optionsMenu.classList.add('hidden');
+    viewerDock.classList.toggle('dock-hidden', !show);
+    return show;
 }
 
 // Gestos en el visor:
@@ -834,6 +874,9 @@ function setupSwipeNavigation() {
                     changePage(-1);  // toque a la izquierda = página anterior
                 } else if (tapX > containerWidth * 0.65) {
                     changePage(1);   // toque a la derecha = siguiente página
+                } else {
+                    // Toque en el centro: mostrar/ocultar el dock
+                    toggleDock();
                 }
             }
 
@@ -874,11 +917,13 @@ function setupSwipeNavigation() {
         const containerWidth = pdfContainer.clientWidth;
 
         if (!mouseMoved) {
-            // Toque de ratón: zonas laterales
+            // Toque de ratón: zonas laterales / centro
             if (e.clientX < containerWidth * 0.35) {
                 changePage(-1);
             } else if (e.clientX > containerWidth * 0.65) {
                 changePage(1);
+            } else {
+                toggleDock();
             }
         } else if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
             if (diffX > 0) changePage(1);

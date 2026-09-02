@@ -203,15 +203,29 @@ header h1 {
     overflow: hidden;
 }
 
-.viewer-header {
+/* ------------- Dock del visor (superior, desplegable) ------------- */
+.viewer-dock {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: rgba(0,0,0,0.85);
+    background: rgba(0,0,0,0.8);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-.viewer-header h2 {
+.viewer-dock.dock-hidden {
+    transform: translateY(-110%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.viewer-dock h2 {
     font-size: 1rem;
     flex: 1;
     text-align: center;
@@ -221,13 +235,13 @@ header h1 {
     margin: 0 10px;
 }
 
-.viewer-actions {
+.dock-actions {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.icon-btn {
+.dock-btn {
     background: none;
     border: none;
     color: white;
@@ -237,13 +251,69 @@ header h1 {
     line-height: 1;
 }
 
+/* Contenedor relativo para el mini menú */
+.dock-menu-wrap {
+    position: relative;
+}
+
+/* Mini menú desplegable bajo el botón de opciones */
+.dock-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    background: rgba(20,20,30,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 6px;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+
+.dock-menu.hidden {
+    display: none;
+}
+
+.dock-menu-item {
+    background: none;
+    border: none;
+    color: white;
+    text-align: left;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dock-menu-item:hover,
+.dock-menu-item:active {
+    background: var(--primary);
+}
+
+.dock-menu-item.active {
+    background: var(--primary);
+}
+
+.dock-page-info {
+    display: block;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 6px 0 2px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
 #pdfContainer {
     flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: auto;
-    padding: 8px;
+    padding: 0;
     touch-action: pan-x pan-y;
 }
 
@@ -259,66 +329,6 @@ header h1 {
 #pdfContainer.zoomed #pdfCanvas {
     max-width: none;
     max-height: none;
-}
-
-.viewer-controls {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 15px;
-    background: rgba(0,0,0,0.85);
-}
-
-#pageInfo {
-    font-size: 0.85rem;
-    min-width: 100px;
-    text-align: center;
-}
-
-.zoom-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.ctrl-btn {
-    padding: 8px 14px;
-    border: none;
-    border-radius: 8px;
-    background: var(--bg-card);
-    color: white;
-    font-size: 1.1rem;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.fit-btn,
-.actual-btn {
-    font-size: 0.8rem;
-    padding: 8px 12px;
-}
-
-.fit-btn.active,
-.actual-btn.active {
-    background: var(--primary);
-}
-
-.zoom-label {
-    font-size: 0.85rem;
-    color: var(--text);
-    min-width: 46px;
-    text-align: center;
-}
-
-.swipe-hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-align: center;
-    opacity: 0.6;
 }
 
 /* Modal */

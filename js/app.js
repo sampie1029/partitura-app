@@ -520,10 +520,17 @@ async function performUpdate() {
         if ('serviceWorker' in navigator) {
             const regs = await navigator.serviceWorker.getRegistrations();
             await Promise.all(regs.map(r => r.unregister()));
+            // Si el SW sigue controlando la página, liberarlo para no volver
+            // a servir el código viejo desde el caché.
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+            }
         }
         setUpdateStatus('✅ Listo. Recargando la app...', 'success');
+        // Forzar la carga completa desde el servidor con un parámetro nuevo
+        // (evita que el service worker viejo devuelva el código en caché).
         setTimeout(() => {
-            window.location.reload();
+            window.location.href = './index.html?fresh=' + Date.now();
         }, 1200);
     } catch (e) {
         console.error('Error al actualizar:', e);

@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.5';
+const APP_VERSION = '1.8.6';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -478,6 +478,8 @@ function setupEventListeners() {
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
     document.getElementById('backFromSettings').addEventListener('click', closeSettings);
     document.getElementById('checkUpdateBtn').addEventListener('click', manualCheckForUpdates);
+    const resetBtn = document.getElementById('resetAppBtn');
+    if (resetBtn) resetBtn.addEventListener('click', hardResetApp);
     setupSettingsNav();
 
     // Cerrar modal al hacer clic fuera
@@ -576,7 +578,15 @@ async function manualCheckForUpdates() {
     try {
         // Obtener la versión más reciente desde el servidor (GitHub Pages)
         const cacheBust = '?t=' + Date.now(); // evita cache
-        const res = await fetch('version.json' + cacheBust, { cache: 'no-store' });
+        // Timeout para que no se quede colgado pidiendo "revisa tu conexión"
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        let res;
+        try {
+            res = await fetch('version.json' + cacheBust, { cache: 'no-store', signal: controller.signal });
+        } finally {
+            clearTimeout(timeout);
+        }
         if (!res.ok) throw new Error('No se pudo conectar');
         const data = await res.json();
         const latest = data.version;
@@ -596,9 +606,39 @@ async function manualCheckForUpdates() {
         }
     } catch (e) {
         console.error('Error al buscar actualizaciones:', e);
-        setUpdateStatus('⚠️ No se pudo comprobar (revisa tu conexión)', 'error');
+        setUpdateStatus('⚠️ No se pudo comprobar. Si tienes internet, usa el botón "Reinstalar la app" de abajo.', 'error');
     } finally {
         btn.disabled = false;
+    }
+}
+
+// Limpia por completo el service worker y los caches viejos (sin tocar las
+// partituras, que viven en IndexedDB y se conservan). Esto resuelve cuando
+// un service worker viejo se queda "atascado" y bloquea las actualizaciones.
+async function hardResetApp() {
+    const ok = confirm('Esto limpiará los archivos temporales de la app para arreglar las actualizaciones.\n\nTus partituras NO se borran.\n\n¿Continuar?');
+    if (!ok) return;
+
+    setUpdateStatus('🔄 Limpiando archivos de la app...', '');
+    try {
+        // 1. Borrar todos los caches del navegador (archivos temporales)
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        // 2. Desregistrar el service worker (para liberar el control viejo)
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+        setUpdateStatus('✅ Archivos limpiados. Recargando la app...', 'success');
+        // 3. Recargar para cargar todo desde cero (sin service worker viejo)
+        setTimeout(() => {
+            window.location.reload();
+        }, 1200);
+    } catch (e) {
+        console.error('Error al limpiar:', e);
+        setUpdateStatus('⚠️ No se pudo limpiar. Cierra la app y ábrela de nuevo.', 'error');
     }
 }
 

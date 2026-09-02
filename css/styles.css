@@ -680,6 +680,12 @@ header h1 {
     cursor: default;
 }
 
+.settings-divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    margin: 20px 0;
+}
+
 .settings-panel .settings-action.danger {
     border: 1px solid rgba(239, 68, 68, 0.4);
     color: #ef4444;

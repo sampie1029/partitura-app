@@ -107,7 +107,6 @@
                 <button class="settings-nav-item" data-settings="update">🔄 Actualizaciones</button>
                 <button class="settings-nav-item" data-settings="storage">💾 Almacenamiento</button>
                 <button class="settings-nav-item" data-settings="about">ℹ️ Acerca de</button>
-                <button class="settings-nav-item" data-settings="feedback">💬 Ayuda</button>
             </nav>
 
             <!-- Vista de la sección seleccionada (derecha) -->
@@ -139,13 +138,11 @@
                 <!-- Almacenamiento -->
                 <div class="settings-panel hidden" data-panel="storage">
                     <h3>Almacenamiento</h3>
-                    <p class="settings-about">Tus partituras se guardan en este dispositivo y funcionan sin internet.</p>
+                    <p class="settings-about">Tus partituras se guardan en este dispositivo y funcionan sin internet. Los archivos PDF se mantienen seguros aquí.</p>
                     <div class="settings-row">
                         <span class="settings-label">Uso de espacio</span>
                         <span class="settings-value" id="storageUsage">-</span>
                     </div>
-                    <button id="clearStorageBtn" class="settings-action danger">🗑️ Vaciar caché de la app</button>
-                    <div id="storageStatus" class="settings-status"></div>
                 </div>
 
                 <!-- Acerca de -->
@@ -156,18 +153,6 @@
                         <span class="settings-label">Versión</span>
                         <span class="settings-value" id="aboutVersion">-</span>
                     </div>
-                </div>
-
-                <!-- Ayuda -->
-                <div class="settings-panel hidden" data-panel="feedback">
-                    <h3>Ayuda</h3>
-                    <p class="settings-about">📖 Cómo usar la app:</p>
-                    <ul class="settings-help">
-                        <li>Toca <b>+</b> para agregar una partitura (PDF)</li>
-                        <li>Desliza la pantalla para cambiar de página</li>
-                        <li>Usa la lupa para buscar por nombre</li>
-                        <li>Filtrar por categorías: Guitarra, Piano, Otros</li>
-                    </ul>
                 </div>
             </div>
         </div>

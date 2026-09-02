@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -414,26 +414,6 @@ function setupSettingsNav() {
             const panel = btn.dataset.settings || 'resumen';
             activateSettingsPanel(panel);
         });
-    });
-
-    // Botón de vaciar caché
-    document.getElementById('clearStorageBtn').addEventListener('click', async () => {
-        const status = document.getElementById('storageStatus');
-        if (!confirm('Esto borrará las partituras guardadas en esta app. ¿Estás seguro?')) return;
-        try {
-            indexedDB.deleteDatabase('partituraDB');
-            // También limpiar caches del service worker
-            if ('caches' in window) {
-                const keys = await caches.keys();
-                for (const name of keys) await caches.delete(name);
-            }
-            status.textContent = '✅ Caché borrada. Recargando...';
-            status.className = 'settings-status success';
-            setTimeout(() => window.location.reload(), 1500);
-        } catch (e) {
-            status.textContent = '⚠️ Error al borrar';
-            status.className = 'settings-status error';
-        }
     });
 }
 

@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -796,6 +796,12 @@ function setupSwipeNavigation() {
     let startTime = null;
     let moved = false;
     let wasMultiTouch = false;
+    // Punto focal del último gesto de zoom (para preservar dónde miras al soltar)
+    let focalX = 0;               // posición del punto de zoom en pantalla (rel. al contenedor)
+    let focalY = 0;
+    let focalDocX = 0;            // punto del documento que estaba bajo los dedos
+    let focalDocY = 0;
+    let focalScale = 1;           // escala al final del pinch
 
     const SWIPE_THRESHOLD = 50;
     const TAP_MAX_MOVE = 20;      // píxeles máximos para considerarlo "toque" no deslizamiento
@@ -848,6 +854,12 @@ function setupSwipeNavigation() {
             const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - containerRect.top + pdfContainer.scrollTop;
             pdfCanvas.style.transformOrigin = `${midX}px ${midY}px`;
             pdfCanvas.style.transform = `scale(${newScale / currentPdfScale})`;
+            // Guardar el punto focal para poder restaurar la vista al soltar
+            focalX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - containerRect.left;
+            focalY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - containerRect.top;
+            focalDocX = midX;
+            focalDocY = midY;
+            focalScale = newScale;
             // Permitir desplazamiento si la escala es mayor que 1
             pdfContainer.classList.toggle('zoomed', newScale > 1.01);
             // Marcar como gesto de zoom para no cambiar de página
@@ -876,12 +888,27 @@ function setupSwipeNavigation() {
     pdfContainer.addEventListener('touchend', async (e) => {
         // Si terminó el gesto de zoom con dos dedos
         if (wasMultiTouch && e.touches.length === 0) {
-            // Resetear transform y re-renderizar al tamaño final (nitidez)
+            // Resetear transform y re-renderizar al tamaño final (nitidez),
+            // preservando el punto focal para no saltar al centro.
             pdfCanvas.style.transform = '';
             document.getElementById('fitBtn').classList.remove('active');
             document.getElementById('actualBtn').classList.remove('active');
-            // Re-render a la escala final una sola vez (no por movimiento)
             if (zoomMode === 'custom') {
+                const oldScale = currentPdfScale;
+                const newScale = currentZoomScale;
+                // Dónde estaba el punto focal en el documento (coords del canvas viejo)
+                const scrollLeftBefore = pdfContainer.scrollLeft;
+                const scrollTopBefore = pdfContainer.scrollTop;
+                await renderPage(currentPage);
+                // Restaurar el scroll para que el punto bajo los dedos siga igual
+                const scaleRatio = newScale / oldScale;
+                const newScrollLeft = (scrollLeftBefore + focalX) * scaleRatio - focalX;
+                const newScrollTop = (scrollTopBefore + focalY) * scaleRatio - focalY;
+                pdfContainer.scrollLeft = newScrollLeft;
+                pdfContainer.scrollTop = newScrollTop;
+            } else if (zoomMode === 'fit') {
+                await renderPage(currentPage);
+            } else if (zoomMode === 'actual') {
                 await renderPage(currentPage);
             }
             pdfContainer.classList.toggle('zoomed', zoomMode === 'custom' && currentZoomScale > 1.01);

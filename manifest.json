@@ -6,7 +6,7 @@
     "scope": "./",
     "display": "fullscreen",
     "display_override": ["fullscreen", "standalone", "minimal-ui"],
-    "version": "1.8.6",
+    "version": "1.8.7",
     "background_color": "#1a1a2e",
     "theme_color": "#e94560",
     "orientation": "any",

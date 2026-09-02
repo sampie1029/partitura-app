@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.6';
+const APP_VERSION = '1.8.7';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -908,8 +908,8 @@ function setupSwipeNavigation() {
     let lastTapTime = 0;
     let lastTapX = 0;
     let lastTapY = 0;
-    const DOUBLE_TAP_TIME = 350;  // ms entre los dos toques para considerarlo doble
-    const DOUBLE_TAP_MOVE = 40;   // píxeles máximos de separación entre los dos toques
+    const DOUBLE_TAP_TIME = 1000;  // ms entre los dos toques para considerarlo doble
+    const DOUBLE_TAP_MOVE = 50;    // píxeles máximos de separación entre los dos toques
 
     pdfContainer.addEventListener('touchstart', (e) => {
         touchCount = e.touches.length;
@@ -944,8 +944,13 @@ function setupSwipeNavigation() {
             // Aplicar zoom dinámico vía transform CSS (fluido, sin re-render)
             zoomMode = 'custom';
             currentZoomScale = newScale;
+            // Zoom FOCALIZADO: el punto de origen del zoom es el centro de
+            // los dos dedos, así el zoom se acerca hacia donde estás tocando.
+            const containerRect = pdfContainer.getBoundingClientRect();
+            const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - containerRect.left + pdfContainer.scrollLeft;
+            const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - containerRect.top + pdfContainer.scrollTop;
+            pdfCanvas.style.transformOrigin = `${midX}px ${midY}px`;
             pdfCanvas.style.transform = `scale(${newScale / currentPdfScale})`;
-            pdfCanvas.style.transformOrigin = 'center center';
             // Permitir desplazamiento si la escala es mayor que 1
             pdfContainer.classList.toggle('zoomed', newScale > 1.01);
             // Marcar como gesto de zoom para no cambiar de página
@@ -957,8 +962,19 @@ function setupSwipeNavigation() {
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > TAP_MAX_MOVE) {
                 moved = true;
             }
+
+            // Si hay zoom activo, un dedo desplaza la partitura (pan)
+            const hasZoom = pdfContainer.classList.contains('zoomed');
+            if (hasZoom) {
+                e.preventDefault();
+                pdfContainer.scrollLeft -= diffX;
+                pdfContainer.scrollTop -= diffY;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                moved = true;
+            }
         }
-    }, { passive: true });
+    }, { passive: false });
 
     pdfContainer.addEventListener('touchend', async (e) => {
         // Si terminó el gesto de zoom con dos dedos

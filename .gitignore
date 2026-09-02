@@ -1,0 +1,6 @@
+# Archivos que no deben subirse a GitHub
+__pycache__/
+*.pyc
+venv/
+server.log
+.DS_Store

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Tu biblioteca de partituras offline">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Mis Partituras</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Pantalla Principal -->
+    <div id="app">
+        <header>
+            <h1>Mis Partituras</h1>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar partitura...">
+            </div>
+        </header>
+
+        <nav class="categories">
+            <button class="cat-btn active" data-category="todos">Todos</button>
+            <button class="cat-btn" data-category="guitarra">Guitarra</button>
+            <button class="cat-btn" data-category="piano">Piano</button>
+            <button class="cat-btn" data-category="otros">Otros</button>
+        </nav>
+
+        <main id="sheetList" class="sheet-grid">
+            <!-- Las partituras se cargan aquí -->
+        </main>
+
+        <button id="addBtn" class="fab">+</button>
+    </div>
+
+    <!-- Visor de Partitura -->
+    <div id="viewer" class="hidden">
+        <header class="viewer-header">
+            <button id="backBtn" class="icon-btn">←</button>
+            <h2 id="viewerTitle">Partitura</h2>
+            <button id="fullscreenBtn" class="icon-btn">⛶</button>
+        </header>
+        <div id="pdfContainer">
+            <canvas id="pdfCanvas"></canvas>
+        </div>
+        <div class="viewer-controls">
+            <button id="prevPage" class="ctrl-btn">◀</button>
+            <span id="pageInfo">Página 1 de 1</span>
+            <button id="nextPage" class="ctrl-btn">▶</button>
+        </div>
+    </div>
+
+    <!-- Modal para agregar partitura -->
+    <div id="addModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Agregar Partitura</h3>
+            <input type="text" id="sheetName" placeholder="Nombre de la partitura">
+            <select id="sheetCategory">
+                <option value="guitarra">Guitarra</option>
+                <option value="piano">Piano</option>
+                <option value="otros">Otros</option>
+            </select>
+            <input type="file" id="sheetFile" accept=".pdf">
+            <div id="addError" class="add-error"></div>
+            <div class="modal-actions">
+                <button id="cancelAdd" class="btn-secondary">Cancelar</button>
+                <button id="confirmAdd" class="btn-primary">Agregar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/pdfjs/pdf.min.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- Modal de actualización disponible -->
+    <div id="updateModal" class="modal hidden">
+        <div class="modal-content update-modal">
+            <div class="update-icon">🚀</div>
+            <h3>¡Nueva versión disponible!</h3>
+            <p id="updateVersionInfo"></p>
+            <p class="update-note">Tu app se actualizará sin perder tus partituras.</p>
+            <div class="modal-actions">
+                <button id="updateLater" class="btn-secondary">Más tarde</button>
+                <button id="updateNow" class="btn-primary">Actualizar ahora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de notificaciones toast -->
+    <div id="toast"></div>
+</body>
+</html>

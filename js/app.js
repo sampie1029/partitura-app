@@ -81,6 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdfjs/pdf.worker.min.js';
 
     setupEventListeners();
+    // Mostrar la versión de la app en el encabezado (para diagnosticar la tablet)
+    const headerVersionEl = document.getElementById('headerVersion');
+    if (headerVersionEl) headerVersionEl.textContent = 'v' + APP_VERSION;
     await openDB();
     await migrateOldSheets();
     sheets = await dbGetAllSheets();
@@ -94,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.8.8';
+const APP_VERSION = '1.9.0';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 

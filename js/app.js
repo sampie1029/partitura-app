@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // aplicarla sin perder sus partituras (que viven en IndexedDB y no se tocan).
 
 // Versión de la app. CÁMBIALA cada vez que publiques cambios.
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // cada 5 minutos
 
@@ -1113,8 +1113,10 @@ function changePage(delta) {
 // actualizaciones. La versión se controla desde setupUpdateNotifier().
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(() => console.log('SW registered'))
+        // Ruta RELATIVA (sin / inicial) para que funcione en la subcarpeta
+        // de GitHub Pages (/partitura-app/) y en local.
+        navigator.serviceWorker.register('service-worker.js')
+            .then(reg => console.log('SW registered', reg.scope))
             .catch(err => console.error('SW error:', err));
     }
 }

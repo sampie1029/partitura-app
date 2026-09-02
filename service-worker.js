@@ -7,19 +7,26 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v22';
+const CACHE_NAME = 'partituras-v23';
 
-// Los archivos core se precachean al instalar.
-const CORE_ASSETS = [
-    '/',
-    '/index.html',
-    '/css/styles.css',
-    '/js/app.js',
-    '/manifest.json',
-    '/version.json',
-    '/lib/pdfjs/pdf.min.js',
-    '/lib/pdfjs/pdf.worker.min.js'
+// Rutas relativas de los archivos core (se resuelven contra el scope del SW,
+// que puede ser la raíz o una subcarpeta como /partitura-app/ en GitHub Pages).
+const CORE_ASSET_PATHS = [
+    './',
+    './index.html',
+    './css/styles.css',
+    './js/app.js',
+    './manifest.json',
+    './version.json',
+    './lib/pdfjs/pdf.min.js',
+    './lib/pdfjs/pdf.worker.min.js'
 ];
+
+// Resuelve una ruta relativa a una URL absoluta correcta basada en el scope.
+function coreAssetUrls() {
+    const scope = self.registration.scope;
+    return CORE_ASSET_PATHS.map(p => new URL(p, scope).href);
+}
 
 // Evento: instalación inicial
 // Forzar a que el nuevo service worker tome control
@@ -48,7 +55,7 @@ self.addEventListener('install', event => {
             // addAll lanza error si un archivo falla; usamos un bucle
             // tolerante para que una actualización nunca bloquee la app
             return Promise.all(
-                CORE_ASSETS.map(url =>
+                coreAssetUrls().map(url =>
                     cache.add(url).catch(() => console.warn('No cacheado:', url))
                 )
             );

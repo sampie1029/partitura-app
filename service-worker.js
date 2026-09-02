@@ -7,7 +7,7 @@
 // - Al actualizar se descarga lo nuevo pero los datos del usuario
 //   permanecen intactos.
 
-const CACHE_NAME = 'partituras-v20';
+const CACHE_NAME = 'partituras-v21';
 
 // Los archivos core se precachean al instalar.
 const CORE_ASSETS = [
@@ -78,15 +78,20 @@ self.addEventListener('activate', event => {
 
 // Evento: fetch.
 // Estrategia principal: NETWORK-FIRST con fallback a cache.
-// - Siempre intenta la red primero (así llegan las actualizaciones).
-// - Si no hay conexión, usa el cache (funciona offline).
-// - Cuando responde de red, actualiza el cache para uso offline posterior.
-// Esto garantiza que al abrir la app siempre se obtenga la versión más nueva.
 self.addEventListener('fetch', event => {
     // Solo interceptar peticiones de la propia app (mismo origen)
     if (!event.request.url.startsWith(self.location.origin)) return;
 
-    // Las peticiones a /lib/ (pdf.js) y archivos estáticos también se cachean.
+    // Las navegaciones (abrir la app) siempre intentan la red primero con un
+    // timeout corto, para que al abrirla siempre se obtenga la versión más
+    // nueva. Solo si no hay conexión se usa el cache (funciona offline).
+    if (event.request.mode === 'navigate') {
+        event.respondWith(fetchWithTimeout(event.request, 3000).catch(() => {
+            return caches.match(event.request).then((cached) => cached || Response.error());
+        }));
+        return;
+    }
+
     event.respondWith(
         (async () => {
             try {
@@ -108,3 +113,14 @@ self.addEventListener('fetch', event => {
         })()
     );
 });
+
+// Helper: fetch con timeout (para la navegación)
+function fetchWithTimeout(request, ms) {
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => reject(new Error('timeout')), ms);
+        fetch(request).then(
+            (response) => { clearTimeout(timeoutId); resolve(response); },
+            (err) => { clearTimeout(timeoutId); reject(err); }
+        );
+    });
+}
